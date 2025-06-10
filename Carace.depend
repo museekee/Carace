@@ -1,0 +1,18 @@
+# depslib dependency file v1.0
+1747921523 source:g:\내 드라이브\happy_coding\carace\carace\main.c
+	<stdio.h>
+	<windows.h>
+	<conio.h>
+
+1749436669 source:g:\내 드라이브\happy_coding\carace\main.c
+	<stdio.h>
+	<windows.h>
+	<conio.h>
+	<stdlib.h>
+	<time.h>
+
+1748431106 source:g:\내 드라이브\happy_coding\carace\mainnobuf.c
+	<stdio.h>
+	<windows.h>
+	<conio.h>
+
