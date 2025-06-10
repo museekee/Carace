@@ -210,15 +210,6 @@ void InGamePage() {
             CarComponent(8*i + ((i-1)*2), 13, COLOR_RED);
         }
 
-        // 게임 정보 표시 (한글)
-        char gameInfoStr[100];
-        sprintf(gameInfoStr, "거리: %d | 속도: %d | 생명: %d",
-                gameInfo.meter, gameInfo.speed, gameInfo.heart);
-
-        // 한글이 포함된 문자열이므로 wchar_t로 변환 필요
-        writeWideStringToBuffer(2, 1, L"게임 정보", COLOR_LIGHT_YELLOW);
-        writeStringToBuffer(2, 2, gameInfoStr, COLOR_LIGHT_AQUA);
-
         // 화면 업데이트
         flipBuffer();
 
@@ -240,7 +231,7 @@ void InGamePage() {
         treeOffset = (treeOffset + 1) % HEIGHT;
         gameInfo.speed = (gameInfo.speed + 1) % 100;
 
-        Sleep(100); // 프레임 조절
+        Sleep(50); // 프레임 조절
     }
 }
 
@@ -252,31 +243,28 @@ void HowToPlayComponent() {
     int xEnd = 119;
 
     // 테두리 그리기
-    writeToBuffer(xStart, 0, L'┌', COLOR_WHITE);
+    writeToBuffer(xStart, 0, L'+', COLOR_WHITE);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, 0, L'─', COLOR_WHITE);
+        writeToBuffer(i, 0, L'-', COLOR_WHITE);
     }
-    writeToBuffer(xEnd, 0, L'┐', COLOR_WHITE);
+    writeToBuffer(xEnd, 0, L'+', COLOR_WHITE);
 
     for (int i = 1; i < HEIGHT-1; i++) {
-        writeToBuffer(xStart, i, L'│', COLOR_WHITE);
-        writeToBuffer(xEnd, i, L'│', COLOR_WHITE);
+        writeToBuffer(xStart, i, L'|', COLOR_WHITE);
+        writeToBuffer(xEnd, i, L'|', COLOR_WHITE);
     }
 
-    writeToBuffer(xStart, HEIGHT-1, L'└', COLOR_WHITE);
+    writeToBuffer(xStart, HEIGHT-1, L'+', COLOR_WHITE);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, HEIGHT-1, L'─', COLOR_WHITE);
+        writeToBuffer(i, HEIGHT-1, L'-', COLOR_WHITE);
     }
-    writeToBuffer(xEnd, HEIGHT-1, L'┘', COLOR_WHITE);
+    writeToBuffer(xEnd, HEIGHT-1, L'+', COLOR_WHITE);
 
     // How To 제목
     printHowToPlay(xStart+4, 2);
 
     // 설명 텍스트 (한글 지원!)
-    writeWideStringToBuffer(xStart+3, 9, L"• A, D키로 좌우 이동", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart+3, 10, L"• Enter키로 게임 종료", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart+3, 11, L"• 다른 차량을 피하세요!", COLOR_LIGHT_RED);
-    writeWideStringToBuffer(xStart+3, 12, L"• 속도가 점점 빨라집니다", COLOR_LIGHT_YELLOW);
+    writeStringToBuffer(xStart+3, 9, " - A: Left / D: Right", COLOR_LIGHT_GREEN);
 }
 
 // 자동차 컴포넌트 (더블버퍼링 버전)
@@ -293,11 +281,10 @@ void drawTrees(int x, int y) {
     for (int i = 0; i < HEIGHT + 5; i += 5) {
         int treeY = (i + y) % HEIGHT;
         if (treeY >= 0 && treeY < HEIGHT - 4) {
-            // 나무 그리기 (유니코드 문자 사용)
-            writeWideStringToBuffer(x, treeY,     L"  🌲  ", COLOR_GREEN);
-            writeWideStringToBuffer(x, treeY+1,   L" ▲▲▲ ", COLOR_GREEN);
-            writeWideStringToBuffer(x, treeY+2,   L"▲▲▲▲▲", COLOR_GREEN);
-            writeWideStringToBuffer(x, treeY+3,   L"  ██  ", COLOR_YELLOW);
+            writeStringToBuffer(x, treeY,     "  /\\  ", COLOR_GREEN);
+            writeStringToBuffer(x, treeY+1,   " /**\\ ", COLOR_GREEN);
+            writeStringToBuffer(x, treeY+2,   "/****\\", COLOR_GREEN);
+            writeStringToBuffer(x, treeY+3,   "  ||  ", COLOR_YELLOW);
         }
     }
 }
