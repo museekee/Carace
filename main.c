@@ -3,6 +3,7 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define WIDTH 120
 #define HEIGHT 29
@@ -51,7 +52,7 @@ void InGamePage();
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
 void drawTrees(int x, int y);
-void drawLanes(int x, int y);
+void drawLanes(int x, int y, bool isYellow);
 
 void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
@@ -196,7 +197,13 @@ void InGamePage() {
             // CarComponent(8*i + ((i-1)*2), 13, COLOR_RED);
             CarComponent(lanes[i-1], 13, COLOR_RED);
         }
-        drawLanes(lanes[0] + laneOffset, 10);
+        drawLanes(lanes[0] - 2, treeOffset, true);
+        drawLanes(lanes[0] + laneOffset, treeOffset, false);
+        drawLanes(lanes[1] + laneOffset, treeOffset, false);
+        drawLanes(lanes[2] + laneOffset, treeOffset, false);
+        drawLanes(lanes[3] + laneOffset, treeOffset, false);
+        drawLanes(lanes[4] + laneOffset, treeOffset, false);
+        drawLanes(lanes[4] + laneOffset * 2 + 2, treeOffset, true);
 
         flipBuffer();
 
@@ -256,23 +263,22 @@ void CarComponent(int x, int y, int color) {
 void drawTrees(int x, int y) {
     for (int i = 0; i < HEIGHT + 5; i += 5) {
         int treeY = (i + y) % HEIGHT;
-        if (treeY >= 0 && treeY < HEIGHT - 4) {
-            writeStringToBuffer(x, treeY,     "  /\\  ", COLOR_GREEN);
-            writeStringToBuffer(x, treeY+1,   " /**\\ ", COLOR_GREEN);
-            writeStringToBuffer(x, treeY+2,   "/****\\", COLOR_GREEN);
-            writeStringToBuffer(x, treeY+3,   "  ||  ", COLOR_YELLOW);
-        }
+        writeStringToBuffer(x, treeY,     "  /\\  ", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 1) % HEIGHT,   " /**\\ ", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 2) % HEIGHT,   "/****\\", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 3) % HEIGHT,   "  ||  ", COLOR_YELLOW);
+        writeStringToBuffer(x, (treeY + 4) % HEIGHT,   "    ", COLOR_YELLOW);
     }
 }
-void drawLanes(int x, int y) {
+void drawLanes(int x, int y, bool isYellow) {
     for (int i = 0; i < HEIGHT + 5; i += 5) {
         int laneY = (i + y) % HEIGHT;
-        if (laneY >= 0 && laneY < HEIGHT - 4) {
-            writeStringToBuffer(x, laneY,     "||", COLOR_BRIGHT_WHITE);
-            writeStringToBuffer(x, laneY+1,   "||", COLOR_BRIGHT_WHITE);
-            writeStringToBuffer(x, laneY+2,   "||", COLOR_BRIGHT_WHITE);
-            writeStringToBuffer(x, laneY+3,   "||", COLOR_BRIGHT_WHITE);
-        }
+        int color = isYellow ? COLOR_YELLOW : COLOR_BRIGHT_WHITE;
+        writeStringToBuffer(x, laneY,     "||", color);
+        writeStringToBuffer(x, (laneY + 1) % HEIGHT,   "||", color);
+        writeStringToBuffer(x, (laneY + 2) % HEIGHT,   "||", color);
+        writeStringToBuffer(x, (laneY + 3) % HEIGHT,   "||", color);
+        writeStringToBuffer(x, (laneY + 4) % HEIGHT,   isYellow ? "||" : "  ", color);
     }
 }
 
