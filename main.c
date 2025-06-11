@@ -21,6 +21,7 @@ struct GameInfo {
 } gameInfo = { 0, 0, 5 };
 
 int lanes[] = { 8, 18, 28, 38, 48, 58 };
+const int laneOffset = 8;
 
 // 더블버퍼링을 위한 구조체
 typedef struct {
@@ -50,11 +51,13 @@ void InGamePage();
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
 void drawTrees(int x, int y);
+void drawLanes(int x, int y);
 
 void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
 
-// 색상 상수 정의
+// https://dimigo.goorm.io/qna/22465 이런 색상은 어떄요?
+// 색상
 #define COLOR_BLACK 0
 #define COLOR_BLUE 1
 #define COLOR_GREEN 2
@@ -76,7 +79,7 @@ int main() {
     Initialization();
     initDoubleBuffer();
 
-    // PortalPage();
+    PortalPage();
     InGamePage();
 
     cleanupDoubleBuffer();
@@ -84,7 +87,6 @@ int main() {
 }
 
 void Initialization() {
-    // 커서 숨기기
     HANDLE hConsole;
     CONSOLE_CURSOR_INFO ConsoleCursor;
 
@@ -95,15 +97,12 @@ void Initialization() {
 
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
 
-    // 인코딩 변경
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 
-    // 랜덤 시드 초기화
-    srand((unsigned int)time(NULL));
+    srand(time(NULL));
 }
 
-// 더블버퍼 초기화
 void initDoubleBuffer() {
     db.hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     db.bufferSize.X = WIDTH;
@@ -115,17 +114,14 @@ void initDoubleBuffer() {
     db.writeRegion.Right = WIDTH - 1;
     db.writeRegion.Bottom = HEIGHT - 1;
 
-    // 버퍼 메모리 할당
     db.buffer = (CHAR_INFO*)malloc(WIDTH * HEIGHT * sizeof(CHAR_INFO));
 
-    // 콘솔 설정
     CONSOLE_CURSOR_INFO cursorInfo;
     cursorInfo.dwSize = 1;
     cursorInfo.bVisible = FALSE;
     SetConsoleCursorInfo(db.hConsole, &cursorInfo);
 }
 
-// 버퍼 클리어
 void clearBuffer(wchar_t fillChar, WORD color) {
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
         db.buffer[i].Char.UnicodeChar = fillChar;
@@ -133,7 +129,6 @@ void clearBuffer(wchar_t fillChar, WORD color) {
     }
 }
 
-// 버퍼에 유니코드 문자 쓰기
 void writeToBuffer(int x, int y, wchar_t ch, WORD color) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
         int index = y * WIDTH + x;
@@ -142,12 +137,10 @@ void writeToBuffer(int x, int y, wchar_t ch, WORD color) {
     }
 }
 
-// 버퍼에 ASCII 문자 쓰기 (호환성)
 void writeCharToBuffer(int x, int y, char ch, WORD color) {
     writeToBuffer(x, y, (wchar_t)ch, color);
 }
 
-// 버퍼에 ASCII 문자열 쓰기
 void writeStringToBuffer(int x, int y, const char* str, WORD color) {
     int len = strlen(str);
     for (int i = 0; i < len && (x + i) < WIDTH; i++) {
@@ -155,7 +148,6 @@ void writeStringToBuffer(int x, int y, const char* str, WORD color) {
     }
 }
 
-// 버퍼에 유니코드 문자열 쓰기 (한글 지원)
 void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color) {
     int len = wcslen(str);
     for (int i = 0; i < len && (x + i) < WIDTH; i++) {
@@ -163,13 +155,11 @@ void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color) {
     }
 }
 
-// 화면에 버퍼 출력
 void flipBuffer() {
     WriteConsoleOutput(db.hConsole, db.buffer, db.bufferSize,
                       db.bufferCoord, &db.writeRegion);
 }
 
-// 더블버퍼 정리
 void cleanupDoubleBuffer() {
     free(db.buffer);
 }
@@ -179,7 +169,7 @@ void cleanupDoubleBuffer() {
 /************/
 void PortalPage() {
     clearBuffer(' ', COLOR_WHITE);
-    printTitle(0, 5);
+    printTitle(1, 5);
     writeStringToBuffer(47, 20, "[PRESS 'ENTER' TO START]", COLOR_WHITE);
     flipBuffer();
 
@@ -195,43 +185,32 @@ void InGamePage() {
     int treeOffset = 0;
 
     while (1) {
-        // 버퍼 클리어
         clearBuffer(L' ', COLOR_WHITE);
 
-        // 나무 그리기 (스크롤 효과)
         drawTrees(0, treeOffset);
         drawTrees(68, treeOffset);
 
-        // UI 컴포넌트들
         HowToPlayComponent();
 
-        // 플레이어 차량들 그리기 (예시)
         for (int i = 1; i <= 6; i++) {
-            CarComponent(8*i + ((i-1)*2), 13, COLOR_RED);
+            // CarComponent(8*i + ((i-1)*2), 13, COLOR_RED);
+            CarComponent(lanes[i-1], 13, COLOR_RED);
         }
+        drawLanes(lanes[0] + laneOffset, 10);
 
-        // 화면 업데이트
         flipBuffer();
 
-        // 키 입력 처리
         if (_kbhit()) {
             int key = _getch();
-            if (key == 13) { // Enter로 종료
+            if (key == 13) {
                 break;
-            } else if (key == 'a' || key == 'A') {
-                // 왼쪽 이동 로직
-                gameInfo.meter++;
-            } else if (key == 'd' || key == 'D') {
-                // 오른쪽 이동 로직
-                gameInfo.meter++;
             }
         }
 
-        // 게임 속도 및 애니메이션 업데이트
         treeOffset = (treeOffset + 1) % HEIGHT;
         gameInfo.speed = (gameInfo.speed + 1) % 100;
 
-        Sleep(50); // 프레임 조절
+        Sleep(50);
     }
 }
 
@@ -243,40 +222,37 @@ void HowToPlayComponent() {
     int xEnd = 119;
 
     // 테두리 그리기
-    writeToBuffer(xStart, 0, L'+', COLOR_WHITE);
+    writeToBuffer(xStart, 0, L'+', COLOR_GRAY);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, 0, L'-', COLOR_WHITE);
+        writeToBuffer(i, 0, L'-', COLOR_GRAY);
     }
-    writeToBuffer(xEnd, 0, L'+', COLOR_WHITE);
+    writeToBuffer(xEnd, 0, L'+', COLOR_GRAY);
 
     for (int i = 1; i < HEIGHT-1; i++) {
-        writeToBuffer(xStart, i, L'|', COLOR_WHITE);
-        writeToBuffer(xEnd, i, L'|', COLOR_WHITE);
+        writeToBuffer(xStart, i, L'|', COLOR_GRAY);
+        writeToBuffer(xEnd, i, L'|', COLOR_GRAY);
     }
 
-    writeToBuffer(xStart, HEIGHT-1, L'+', COLOR_WHITE);
+    writeToBuffer(xStart, HEIGHT-1, L'+', COLOR_GRAY);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, HEIGHT-1, L'-', COLOR_WHITE);
+        writeToBuffer(i, HEIGHT-1, L'-', COLOR_GRAY);
     }
-    writeToBuffer(xEnd, HEIGHT-1, L'+', COLOR_WHITE);
+    writeToBuffer(xEnd, HEIGHT-1, L'+', COLOR_GRAY);
 
-    // How To 제목
     printHowToPlay(xStart+4, 2);
 
-    // 설명 텍스트 (한글 지원!)
     writeStringToBuffer(xStart+3, 9, " - A: Left / D: Right", COLOR_LIGHT_GREEN);
 }
 
-// 자동차 컴포넌트 (더블버퍼링 버전)
+// 자동차 컴포넌트
 void CarComponent(int x, int y, int color) {
-    // 차량 모양을 버퍼에 직접 그리기
     writeStringToBuffer(x, y-3, "  ____  ", color);
     writeStringToBuffer(x, y-2, " / ** \\", color);
     writeStringToBuffer(x, y-1, "/oo  oo\\", color);
     writeStringToBuffer(x, y,   " 0    0 ", color);
 }
 
-// 나무 그리기 (더블버퍼링 버전) - 한글 문자 사용
+// 나무 그리기
 void drawTrees(int x, int y) {
     for (int i = 0; i < HEIGHT + 5; i += 5) {
         int treeY = (i + y) % HEIGHT;
@@ -288,20 +264,30 @@ void drawTrees(int x, int y) {
         }
     }
 }
+void drawLanes(int x, int y) {
+    for (int i = 0; i < HEIGHT + 5; i += 5) {
+        int laneY = (i + y) % HEIGHT;
+        if (laneY >= 0 && laneY < HEIGHT - 4) {
+            writeStringToBuffer(x, laneY,     "||", COLOR_BRIGHT_WHITE);
+            writeStringToBuffer(x, laneY+1,   "||", COLOR_BRIGHT_WHITE);
+            writeStringToBuffer(x, laneY+2,   "||", COLOR_BRIGHT_WHITE);
+            writeStringToBuffer(x, laneY+3,   "||", COLOR_BRIGHT_WHITE);
+        }
+    }
+}
 
 /****************/
 /** FUNCTIONS **/
 /****************/
 void printTitle(int x, int y) {
-    // 타이틀을 더블버퍼에 그리기
-    writeStringToBuffer(x, y,   "  /$$$$$$  /$$$$$$$         /$$$$$$   /$$$$$$  /$$$$$$$", COLOR_RED);
-    writeStringToBuffer(x, y+1, " /$$__  $$| $$__  $$       /$$__  $$ /$$__  $$| $$__  $$", COLOR_RED);
-    writeStringToBuffer(x, y+2, "|__/  \\ $$| $$  \\ $$      | $$  \\__/| $$  \\ $$| $$  \\ $$", COLOR_RED);
-    writeStringToBuffer(x, y+3, "  /$$$$$$/| $$  | $$      | $$      | $$$$$$$$| $$$$$$$", COLOR_RED);
-    writeStringToBuffer(x, y+4, " /$$____/ | $$  | $$      | $$      | $$__  $$| $$__  $$", COLOR_RED);
-    writeStringToBuffer(x, y+5, "| $$      | $$  | $$      | $$    $$| $$  | $$| $$  \\ $$", COLOR_RED);
-    writeStringToBuffer(x, y+6, "| $$$$$$$$| $$$$$$$/      |  $$$$$$/| $$  | $$| $$  | $$", COLOR_RED);
-    writeStringToBuffer(x, y+7, "|________/|_______/        \\______/ |__/  |__/|__/  |__/", COLOR_RED);
+    writeStringToBuffer(x, y,   "  /$$$$$$  /$$$$$$$         /$$$$$$   /$$$$$$  /$$$$$$$        /$$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$ /$$   /$$  /$$$$$$", COLOR_RED);
+    writeStringToBuffer(x, y+1, " /$$__  $$| $$__  $$       /$$__  $$ /$$__  $$| $$__  $$      | $$__  $$ /$$__  $$ /$$__  $$|_  $$_/| $$$ | $$ /$$__  $$", COLOR_RED);
+    writeStringToBuffer(x, y+2, "|__/  \\ $$| $$  \\ $$      | $$  \\__/| $$  \\ $$| $$  \\ $$      | $$  \\ $$| $$  \\ $$| $$  \\__/  | $$  | $$$$| $$| $$  \\__/", COLOR_RED);
+    writeStringToBuffer(x, y+3, "  /$$$$$$/| $$  | $$      | $$      | $$$$$$$$| $$$$$$$/      | $$$$$$$/| $$$$$$$$| $$        | $$  | $$ $$ $$| $$ /$$$$", COLOR_RED);
+    writeStringToBuffer(x, y+4, " /$$____/ | $$  | $$      | $$      | $$__  $$| $$__  $$      | $$__  $$| $$__  $$| $$        | $$  | $$  $$$$| $$|_  $$", COLOR_RED);
+    writeStringToBuffer(x, y+5, "| $$      | $$  | $$      | $$    $$| $$  | $$| $$  \\ $$      | $$  \\ $$| $$  | $$| $$    $$  | $$  | $$\\  $$$| $$  \\ $$", COLOR_RED);
+    writeStringToBuffer(x, y+6, "| $$$$$$$$| $$$$$$$/      |  $$$$$$/| $$  | $$| $$  | $$      | $$  | $$| $$  | $$|  $$$$$$/ /$$$$$$| $$ \\  $$|  $$$$$$/", COLOR_RED);
+    writeStringToBuffer(x, y+7, "|________/|_______/        \\______/ |__/  |__/|__/  |__/      |__/  |__/|__/  |__/ \\______/ |______/|__/  \\__/ \\______/ ", COLOR_RED);
 }
 
 void printHowToPlay(int x, int y) {
