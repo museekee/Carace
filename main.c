@@ -39,6 +39,10 @@ typedef struct {
 
 DoubleBuffer db;
 
+typedef struct RenderTimerParam {
+    int treeOffset;
+}  RenderTimerParam;
+
 // 함수 선언
 void Initialization();
 void initDoubleBuffer();
@@ -52,6 +56,8 @@ void flipBuffer();
 
 void PortalPage();
 void InGamePage();
+
+void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
 
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
@@ -189,35 +195,17 @@ void PortalPage() {
 }
 
 void InGamePage() {
-    int treeOffset = 0;
+    HANDLE renderTimer = NULL;
+
+    RenderTimerParam renderTimerParam = { 0 };
+    int renderTimerDueTime = 111 - gameInfo.speed;
+    CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
+    // DeleteTimerQueueTimer(NULL, renderTimer, NULL);
 
     while (1) {
-        // 버퍼 초기화
-        clearBuffer(L' ', COLOR_WHITE);
+        DWORD currentTime = GetTickCount();
 
-        // 나무 렌더링
-        drawTrees(0, treeOffset);
-        drawTrees(68, treeOffset);
-
-        // 오른쪽 렌더링
-        HowToPlayComponent();
-
-        // 차선 렌더링
-        drawLanes(lanes[0] - 2, treeOffset, true);
-        drawLanes(lanes[0] + laneOffset, treeOffset, false);
-        drawLanes(lanes[1] + laneOffset, treeOffset, false);
-        drawLanes(lanes[2] + laneOffset, treeOffset, false);
-        drawLanes(lanes[3] + laneOffset, treeOffset, false);
-        drawLanes(lanes[4] + laneOffset, treeOffset, false);
-        drawLanes(lanes[4] + laneOffset * 2 + 2, treeOffset, true);
-
-        // 플레이어 렌더링
-        CarComponent(lanes[gameInfo.playerLane], 25, COLOR_RED);
-
-        // 버퍼 변경
-        flipBuffer();
-
-        // 키 입력
+        // 키 입력 처리 (항상 반응)
         if (_kbhit()) {
             int key = _getch();
             switch (key) {
@@ -233,20 +221,51 @@ void InGamePage() {
                 break;
             case 'w':
                 addSpeed(1);
+                renderTimerDueTime = 111 - gameInfo.speed; // 속도 변경시 간격 업데이트
                 break;
             case 's':
                 addSpeed(-1);
+                renderTimerDueTime = 111 - gameInfo.speed;
                 break;
             }
         }
 
-        treeOffset = (treeOffset + 1) % HEIGHT;
-        // gameInfo.speed = (gameInfo.speed + 1) % 100;
-
-        Sleep(111-gameInfo.speed);
+        // 버퍼 변경
+        flipBuffer();
+        // CPU 사용률을 줄이기 위한 짧은 대기
+        Sleep(1);
     }
 }
 
+/*************************/
+/** TIMER CALLBACKS **/
+/************************/
+void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
+    RenderTimerParam* data = (RenderTimerParam*)lpParam;
+
+    clearBuffer(L' ', COLOR_WHITE);
+
+    // 나무 렌더링
+    drawTrees(0, data->treeOffset);
+    drawTrees(68, data->treeOffset);
+
+    // 오른쪽 렌더링
+    HowToPlayComponent();
+
+    // 차선 렌더링
+    drawLanes(lanes[0] - 2, data->treeOffset, true);
+    drawLanes(lanes[0] + laneOffset, data->treeOffset, false);
+    drawLanes(lanes[1] + laneOffset, data->treeOffset, false);
+    drawLanes(lanes[2] + laneOffset, data->treeOffset, false);
+    drawLanes(lanes[3] + laneOffset, data->treeOffset, false);
+    drawLanes(lanes[4] + laneOffset, data->treeOffset, false);
+    drawLanes(lanes[4] + laneOffset * 2 + 2, data->treeOffset, true);
+
+    // 플레이어 렌더링
+    CarComponent(lanes[gameInfo.playerLane], 25, COLOR_RED);
+
+    data->treeOffset = (data->treeOffset + 1) % HEIGHT;
+}
 /********************/
 /** COMPONENTS **/
 /********************/
