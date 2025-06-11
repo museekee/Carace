@@ -8,6 +8,9 @@
 #define WIDTH 120
 #define HEIGHT 29
 
+// 제한 속도 준수 점수 추가
+// 체력 아이템도 떨어지기
+// 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
 // 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
 typedef struct _NPC {
     int color; // 당연히 고정
@@ -17,11 +20,12 @@ typedef struct _NPC {
 
 struct GameInfo {
     int meter;
-    int speed;
+    int speed; // 최소 10
     int heart;
-} gameInfo = { 0, 0, 5 };
+    int playerLane;
+} gameInfo = { 0, 10, 5, 2 };
 
-int lanes[] = { 8, 18, 28, 38, 48, 58 };
+const int lanes[] = { 8, 18, 28, 38, 48, 58 };
 const int laneOffset = 8;
 
 // 더블버퍼링을 위한 구조체
@@ -56,6 +60,8 @@ void drawLanes(int x, int y, bool isYellow);
 
 void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
+void movePlayer(int diection);
+void addSpeed(int value);
 
 // https://dimigo.goorm.io/qna/22465 이런 색상은 어떄요?
 // 색상
@@ -186,17 +192,17 @@ void InGamePage() {
     int treeOffset = 0;
 
     while (1) {
+        // 버퍼 초기화
         clearBuffer(L' ', COLOR_WHITE);
 
+        // 나무 렌더링
         drawTrees(0, treeOffset);
         drawTrees(68, treeOffset);
 
+        // 오른쪽 렌더링
         HowToPlayComponent();
 
-        for (int i = 1; i <= 6; i++) {
-            // CarComponent(8*i + ((i-1)*2), 13, COLOR_RED);
-            CarComponent(lanes[i-1], 13, COLOR_RED);
-        }
+        // 차선 렌더링
         drawLanes(lanes[0] - 2, treeOffset, true);
         drawLanes(lanes[0] + laneOffset, treeOffset, false);
         drawLanes(lanes[1] + laneOffset, treeOffset, false);
@@ -205,19 +211,39 @@ void InGamePage() {
         drawLanes(lanes[4] + laneOffset, treeOffset, false);
         drawLanes(lanes[4] + laneOffset * 2 + 2, treeOffset, true);
 
+        // 플레이어 렌더링
+        CarComponent(lanes[gameInfo.playerLane], 25, COLOR_RED);
+
+        // 버퍼 변경
         flipBuffer();
 
+        // 키 입력
         if (_kbhit()) {
             int key = _getch();
-            if (key == 13) {
+            switch (key) {
+            case 13:
+                break;
+            case 'A':
+            case 'a':
+                movePlayer(0);
+                break;
+            case 'D':
+            case 'd':
+                movePlayer(1);
+                break;
+            case 'w':
+                addSpeed(1);
+                break;
+            case 's':
+                addSpeed(-1);
                 break;
             }
         }
 
         treeOffset = (treeOffset + 1) % HEIGHT;
-        gameInfo.speed = (gameInfo.speed + 1) % 100;
+        // gameInfo.speed = (gameInfo.speed + 1) % 100;
 
-        Sleep(50);
+        Sleep(111-gameInfo.speed);
     }
 }
 
@@ -249,6 +275,10 @@ void HowToPlayComponent() {
     printHowToPlay(xStart+4, 2);
 
     writeStringToBuffer(xStart+3, 9, " - A: Left / D: Right", COLOR_LIGHT_GREEN);
+    char gameInfoStr[100];
+    sprintf(gameInfoStr, "Meter: %d | Speed: %d | Heart: %d",
+            gameInfo.meter, gameInfo.speed, gameInfo.heart);
+    writeStringToBuffer(xStart+3, 10, gameInfoStr, COLOR_LIGHT_YELLOW);
 }
 
 // 자동차 컴포넌트
@@ -303,4 +333,23 @@ void printHowToPlay(int x, int y) {
     writeStringToBuffer(x, y+3, " |  __  |/ _ \\ \\ /\\ / /    | |/ _ \\", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
+}
+
+/********************/
+/** CONTROLLERS **/
+/********************/
+
+// { direction } 0: Left, 1: Right
+void movePlayer(int direction) {
+    if (direction == 0 && gameInfo.playerLane > 0)
+        gameInfo.playerLane--;
+    else if (direction == 1 && gameInfo.playerLane < 5)
+        gameInfo.playerLane++;
+}
+void addSpeed(int value) {
+    int* speed = &(gameInfo.speed);
+    if (value == -1 && *speed > 10)
+        (*speed)--;
+    else if (value == 1 && *speed < 110)
+        (*speed)++;
 }
