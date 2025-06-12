@@ -115,10 +115,25 @@ void Initialization() {
 
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
 
+    // 콘솔 모드 설정 - 유니코드 출력 활성화
+    DWORD mode = 0;
+    GetConsoleMode(hConsole, &mode);
+    mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hConsole, mode);
+
+    // UTF-8 코드페이지 설정
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
-
     system("chcp 65001 > nul");
+
+    // 콘솔 폰트를 유니코드 지원 폰트로 설정
+    CONSOLE_FONT_INFOEX fontInfo;
+    fontInfo.cbSize = sizeof(CONSOLE_FONT_INFOEX);
+    GetCurrentConsoleFontEx(hConsole, FALSE, &fontInfo);
+    wcscpy_s(fontInfo.FaceName, LF_FACESIZE, L"Consolas");
+    fontInfo.dwFontSize.X = 8;
+    fontInfo.dwFontSize.Y = 16;
+    SetCurrentConsoleFontEx(hConsole, FALSE, &fontInfo);
 
     srand(time(NULL));
 }
@@ -171,9 +186,13 @@ void writeStringToBuffer(int x, int y, const char* str, WORD color) {
 }
 
 void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color) {
+    if (str == NULL) return;
+    
     int len = wcslen(str);
     for (int i = 0; i < len && (x + i) < WIDTH; i++) {
-        writeToBuffer(x + i, y, str[i], color);
+        if (x + i >= 0 && y >= 0 && y < HEIGHT) {
+            writeToBuffer(x + i, y, str[i], color);
+        }
     }
 }
 
@@ -340,11 +359,12 @@ void HowToPlayComponent() {
     writeStringToBuffer(xStart+3, 10, " - W: Increase speed / S: Decrease Speed", COLOR_LIGHT_GREEN);
     char gameInfoStr[100];
     sprintf(gameInfoStr, "Meter: %d | Speed: %d | Heart: %d",
-            gameInfo.meter, gameInfo.speed, gameInfo.heart);
-    writeStringToBuffer(xStart+3, 11, gameInfoStr, COLOR_LIGHT_YELLOW);
-    char tempStr[100];
-    sprintf(tempStr, L"─────");
-    writeWideStringToBuffer(xStart+3, 13, tempStr, COLOR_LIGHT_GREEN);
+            gameInfo.meter, gameInfo.speed, gameInfo.heart);    writeStringToBuffer(xStart+3, 11, gameInfoStr, COLOR_LIGHT_YELLOW);
+      // 유니코드 문자열을 직접 사용 - 여러 옵션 테스트
+    writeWideStringToBuffer(xStart+3, 13, L"─────", COLOR_LIGHT_GREEN);  // 수평선
+    writeWideStringToBuffer(xStart+3, 14, L"═════", COLOR_LIGHT_GREEN);  // 이중선
+    writeWideStringToBuffer(xStart+3, 15, L"━━━━━", COLOR_LIGHT_GREEN);  // 굵은선
+    writeStringToBuffer(xStart+3, 16, "-----", COLOR_LIGHT_GREEN);      // ASCII 대안
 }
 
 // 자동차 컴포넌트
