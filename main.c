@@ -12,6 +12,7 @@
 // 체력 아이템도 떨어지기
 // 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
 // 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
+#pragma region 구조체 선언
 typedef struct _NPC {
     int color; // 당연히 고정
     int x; // 당연히 고정
@@ -42,8 +43,9 @@ DoubleBuffer db;
 typedef struct RenderTimerParam {
     int treeOffset;
 }  RenderTimerParam;
+#pragma endregion
 
-// 함수 선언
+#pragma region 함수 선언
 void Initialization();
 void initDoubleBuffer();
 void cleanupDoubleBuffer();
@@ -68,9 +70,10 @@ void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
 void movePlayer(int diection);
 void addSpeed(int value);
+#pragma endregion
 
 // https://dimigo.goorm.io/qna/22465 이런 색상은 어떄요?
-// 색상
+#pragma region 색상
 #define COLOR_BLACK 0
 #define COLOR_BLUE 1
 #define COLOR_GREEN 2
@@ -87,7 +90,9 @@ void addSpeed(int value);
 #define COLOR_LIGHT_PURPLE 13
 #define COLOR_LIGHT_YELLOW 14
 #define COLOR_BRIGHT_WHITE 15
+#pragma endregion
 
+#pragma region 메인함수와 초기화
 int main() {
     Initialization();
     initDoubleBuffer();
@@ -115,7 +120,9 @@ void Initialization() {
 
     srand(time(NULL));
 }
+#pragma endregion
 
+#pragma region 더블버퍼링 설정
 void initDoubleBuffer() {
     db.hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     db.bufferSize.X = WIDTH;
@@ -176,7 +183,9 @@ void flipBuffer() {
 void cleanupDoubleBuffer() {
     free(db.buffer);
 }
+#pragma endregion
 
+#pragma region 페이지
 /************/
 /** PAGES **/
 /************/
@@ -236,7 +245,9 @@ void InGamePage() {
         Sleep(1);
     }
 }
+#pragma endregion
 
+#pragma region 타이머 콜백
 /*************************/
 /** TIMER CALLBACKS **/
 /************************/
@@ -266,6 +277,9 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
 
     data->treeOffset = (data->treeOffset + 1) % HEIGHT;
 }
+#pragma endregion
+
+#pragma region 컴포넌트
 /********************/
 /** COMPONENTS **/
 /********************/
@@ -330,7 +344,9 @@ void drawLanes(int x, int y, bool isYellow) {
         writeStringToBuffer(x, (laneY + 4) % HEIGHT,   isYellow ? "||" : "  ", color);
     }
 }
+#pragma endregion
 
+#pragma region 함수 정의
 /****************/
 /** FUNCTIONS **/
 /****************/
@@ -353,7 +369,9 @@ void printHowToPlay(int x, int y) {
     writeStringToBuffer(x, y+4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
 }
+#pragma endregion
 
+#pragma region 컨트롤러
 /********************/
 /** CONTROLLERS **/
 /********************/
@@ -372,3 +390,4 @@ void addSpeed(int value) {
     else if (value == 1 && *speed < 110)
         (*speed)++;
 }
+#pragma endregion
