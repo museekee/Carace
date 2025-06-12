@@ -118,6 +118,8 @@ void Initialization() {
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 
+    system("chcp 65001 > nul");
+
     srand(time(NULL));
 }
 #pragma endregion
@@ -205,21 +207,25 @@ void PortalPage() {
 
 void InGamePage() {
     HANDLE renderTimer = NULL;
+    
+    // 키 상태 추적 변수들 (W/S만 필요)
+    bool wPressed = false;
+    bool sPressed = false;
 
     RenderTimerParam renderTimerParam = { 0 };
     int renderTimerDueTime = 111 - gameInfo.speed;
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
-    // DeleteTimerQueueTimer(NULL, renderTimer, NULL);
 
     while (1) {
         DWORD currentTime = GetTickCount();
+        int oldSpeed = gameInfo.speed;
 
-        // 키 입력 처리 (항상 반응)
         if (_kbhit()) {
             int key = _getch();
             switch (key) {
             case 13:
-                break;
+                DeleteTimerQueueTimer(NULL, renderTimer, NULL);
+                return;
             case 'A':
             case 'a':
                 movePlayer(0);
@@ -228,20 +234,43 @@ void InGamePage() {
             case 'd':
                 movePlayer(1);
                 break;
+            case 'W':
             case 'w':
-                addSpeed(1);
-                renderTimerDueTime = 111 - gameInfo.speed; // 속도 변경시 간격 업데이트
+                if (!wPressed) {
+                    addSpeed(5);
+                    wPressed = true;
+                    
+                    if (oldSpeed != gameInfo.speed) {
+                        renderTimerDueTime = 111 - gameInfo.speed;
+                        ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
+                    }
+                }
                 break;
+            case 'S':
             case 's':
-                addSpeed(-1);
-                renderTimerDueTime = 111 - gameInfo.speed;
+                if (!sPressed) {
+                    addSpeed(-5);
+                    sPressed = true;
+                    
+                    if (oldSpeed != gameInfo.speed) {
+                        renderTimerDueTime = 111 - gameInfo.speed;
+                        ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
+                    }
+                }
                 break;
             }
         }
 
+        if (!(GetAsyncKeyState('W') & 0x8000) && !(GetAsyncKeyState('w') & 0x8000)) {
+            wPressed = false;
+        }
+        if (!(GetAsyncKeyState('S') & 0x8000) && !(GetAsyncKeyState('s') & 0x8000)) {
+            sPressed = false;
+        }
+
         // 버퍼 변경
         flipBuffer();
-        // CPU 사용률을 줄이기 위한 짧은 대기
+        
         Sleep(1);
     }
 }
@@ -308,10 +337,14 @@ void HowToPlayComponent() {
     printHowToPlay(xStart+4, 2);
 
     writeStringToBuffer(xStart+3, 9, " - A: Left / D: Right", COLOR_LIGHT_GREEN);
+    writeStringToBuffer(xStart+3, 10, " - W: Increase speed / S: Decrease Speed", COLOR_LIGHT_GREEN);
     char gameInfoStr[100];
     sprintf(gameInfoStr, "Meter: %d | Speed: %d | Heart: %d",
             gameInfo.meter, gameInfo.speed, gameInfo.heart);
-    writeStringToBuffer(xStart+3, 10, gameInfoStr, COLOR_LIGHT_YELLOW);
+    writeStringToBuffer(xStart+3, 11, gameInfoStr, COLOR_LIGHT_YELLOW);
+    char tempStr[100];
+    sprintf(tempStr, L"─────");
+    writeWideStringToBuffer(xStart+3, 13, tempStr, COLOR_LIGHT_GREEN);
 }
 
 // 자동차 컴포넌트
@@ -385,9 +418,23 @@ void movePlayer(int direction) {
 }
 void addSpeed(int value) {
     int* speed = &(gameInfo.speed);
-    if (value == -1 && *speed > 10)
-        (*speed)--;
-    else if (value == 1 && *speed < 110)
-        (*speed)++;
+    
+    if (value < 0) {
+        // 감속: 최소 속도 10까지
+        int newSpeed = *speed + value;
+        if (newSpeed >= 10) {
+            *speed = newSpeed;
+        } else {
+            *speed = 10;
+        }
+    } else if (value > 0) {
+        // 가속: 최대 속도 110까지
+        int newSpeed = *speed + value;
+        if (newSpeed <= 110) {
+            *speed = newSpeed;
+        } else {
+            *speed = 110;
+        }
+    }
 }
 #pragma endregion
