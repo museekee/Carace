@@ -22,9 +22,10 @@ typedef struct _NPC {
 struct GameInfo {
     int meter;
     int speed; // 최소 10
+    int score; // 점수
     int heart;
     int playerLane;
-} gameInfo = { 0, 10, 5, 2 };
+} gameInfo = { 0, 10, 0, 3, 2 };
 
 const int lanes[] = { 8, 18, 28, 38, 48, 58 };
 const int laneOffset = 8;
@@ -115,25 +116,9 @@ void Initialization() {
 
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
 
-    // 콘솔 모드 설정 - 유니코드 출력 활성화
-    DWORD mode = 0;
-    GetConsoleMode(hConsole, &mode);
-    mode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(hConsole, mode);
-
     // UTF-8 코드페이지 설정
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
-    system("chcp 65001 > nul");
-
-    // 콘솔 폰트를 유니코드 지원 폰트로 설정
-    CONSOLE_FONT_INFOEX fontInfo;
-    fontInfo.cbSize = sizeof(CONSOLE_FONT_INFOEX);
-    GetCurrentConsoleFontEx(hConsole, FALSE, &fontInfo);
-    wcscpy_s(fontInfo.FaceName, LF_FACESIZE, L"Consolas");
-    fontInfo.dwFontSize.X = 8;
-    fontInfo.dwFontSize.Y = 16;
-    SetCurrentConsoleFontEx(hConsole, FALSE, &fontInfo);
 
     srand(time(NULL));
 }
@@ -166,6 +151,7 @@ void clearBuffer(wchar_t fillChar, WORD color) {
     }
 }
 
+// 캐릭터 하나
 void writeToBuffer(int x, int y, wchar_t ch, WORD color) {
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
         int index = y * WIDTH + x;
@@ -197,10 +183,9 @@ void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color) {
 }
 
 void flipBuffer() {
-    WriteConsoleOutput(db.hConsole, db.buffer, db.bufferSize,
-                      db.bufferCoord, &db.writeRegion);
+    WriteConsoleOutputW(db.hConsole, db.buffer, db.bufferSize,
+                       db.bufferCoord, &db.writeRegion);
 }
-
 void cleanupDoubleBuffer() {
     free(db.buffer);
 }
@@ -336,35 +321,43 @@ void HowToPlayComponent() {
     int xEnd = 119;
 
     // 테두리 그리기
-    writeToBuffer(xStart, 0, L'+', COLOR_GRAY);
+    writeToBuffer(xStart, 0, L'┌', COLOR_GRAY);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, 0, L'-', COLOR_GRAY);
+        writeToBuffer(i, 0, L'─', COLOR_GRAY);
     }
-    writeToBuffer(xEnd, 0, L'+', COLOR_GRAY);
+    writeToBuffer(xEnd, 0, L'┐', COLOR_GRAY);
 
     for (int i = 1; i < HEIGHT-1; i++) {
-        writeToBuffer(xStart, i, L'|', COLOR_GRAY);
-        writeToBuffer(xEnd, i, L'|', COLOR_GRAY);
+        writeToBuffer(xStart, i, L'│', COLOR_GRAY);
+        writeToBuffer(xEnd, i, L'│', COLOR_GRAY);
     }
 
-    writeToBuffer(xStart, HEIGHT-1, L'+', COLOR_GRAY);
+    writeToBuffer(xStart, HEIGHT-1, L'└', COLOR_GRAY);
     for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, HEIGHT-1, L'-', COLOR_GRAY);
+        writeToBuffer(i, HEIGHT-1, L'─', COLOR_GRAY);
     }
-    writeToBuffer(xEnd, HEIGHT-1, L'+', COLOR_GRAY);
+    writeToBuffer(xEnd, HEIGHT-1, L'┘', COLOR_GRAY);
 
     printHowToPlay(xStart+4, 2);
 
-    writeStringToBuffer(xStart+3, 9, " - A: Left / D: Right", COLOR_LIGHT_GREEN);
-    writeStringToBuffer(xStart+3, 10, " - W: Increase speed / S: Decrease Speed", COLOR_LIGHT_GREEN);
-    char gameInfoStr[100];
-    sprintf(gameInfoStr, "Meter: %d | Speed: %d | Heart: %d",
-            gameInfo.meter, gameInfo.speed, gameInfo.heart);    writeStringToBuffer(xStart+3, 11, gameInfoStr, COLOR_LIGHT_YELLOW);
-      // 유니코드 문자열을 직접 사용 - 여러 옵션 테스트
-    writeWideStringToBuffer(xStart+3, 13, L"─────", COLOR_LIGHT_GREEN);  // 수평선
-    writeWideStringToBuffer(xStart+3, 14, L"═════", COLOR_LIGHT_GREEN);  // 이중선
-    writeWideStringToBuffer(xStart+3, 15, L"━━━━━", COLOR_LIGHT_GREEN);  // 굵은선
-    writeStringToBuffer(xStart+3, 16, "-----", COLOR_LIGHT_GREEN);      // ASCII 대안
+    writeWideStringToBuffer(xStart+3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart+3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
+    wchar_t scoreWstr[50];
+    swprintf(scoreWstr, 50, L"점수: %d",
+            gameInfo.score);
+    writeWideStringToBuffer(xStart+3, 11, scoreWstr, COLOR_LIGHT_YELLOW);
+
+    wchar_t speedWstr[50];
+    swprintf(speedWstr, 50, L"속도: %dkm/h",
+            gameInfo.speed);
+    writeWideStringToBuffer(xStart+3, 12, speedWstr, COLOR_LIGHT_YELLOW);
+
+    wchar_t hearts[] = L"♡♡♡♡♡";
+    writeWideStringToBuffer(xStart+3, 13, L"하트: ", COLOR_LIGHT_YELLOW);
+    for (int i = 0; i < gameInfo.heart; i++) {
+        hearts[i] = L'♥';
+    }
+    writeWideStringToBuffer(xStart+7, 13, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
@@ -390,11 +383,11 @@ void drawLanes(int x, int y, bool isYellow) {
     for (int i = 0; i < HEIGHT + 5; i += 5) {
         int laneY = (i + y) % HEIGHT;
         int color = isYellow ? COLOR_YELLOW : COLOR_BRIGHT_WHITE;
-        writeStringToBuffer(x, laneY,     "||", color);
-        writeStringToBuffer(x, (laneY + 1) % HEIGHT,   "||", color);
-        writeStringToBuffer(x, (laneY + 2) % HEIGHT,   "||", color);
-        writeStringToBuffer(x, (laneY + 3) % HEIGHT,   "||", color);
-        writeStringToBuffer(x, (laneY + 4) % HEIGHT,   isYellow ? "||" : "  ", color);
+        writeWideStringToBuffer(x, laneY, isYellow ? L"││" : L"┌┐", color);
+        writeWideStringToBuffer(x, (laneY + 1) % HEIGHT, L"││", color);
+        writeWideStringToBuffer(x, (laneY + 2) % HEIGHT, L"││", color);
+        writeWideStringToBuffer(x, (laneY + 3) % HEIGHT, isYellow ? L"││" : L"└┘", color);
+        writeWideStringToBuffer(x, (laneY + 4) % HEIGHT, isYellow ? L"││" : L"  ", color);
     }
 }
 #pragma endregion
