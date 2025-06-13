@@ -396,6 +396,7 @@ void drawLanes(int x, int y, bool isYellow) {
 /****************/
 /** FUNCTIONS **/
 /****************/
+// https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne
 void printTitle(int x, int y) {
     writeStringToBuffer(x, y,   "  /$$$$$$  /$$$$$$$         /$$$$$$   /$$$$$$  /$$$$$$$        /$$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$ /$$   /$$  /$$$$$$", COLOR_RED);
     writeStringToBuffer(x, y+1, " /$$__  $$| $$__  $$       /$$__  $$ /$$__  $$| $$__  $$      | $$__  $$ /$$__  $$ /$$__  $$|_  $$_/| $$$ | $$ /$$__  $$", COLOR_RED);
@@ -407,6 +408,7 @@ void printTitle(int x, int y) {
     writeStringToBuffer(x, y+7, "|________/|_______/        \\______/ |__/  |__/|__/  |__/      |__/  |__/|__/  |__/ \\______/ |______/|__/  \\__/ \\______/ ", COLOR_RED);
 }
 
+// https://patorjk.com/software/taag/#p=display&f=Big
 void printHowToPlay(int x, int y) {
     writeStringToBuffer(x, y,   "  _    _                 _______", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+1, " | |  | |               |__   __|", COLOR_LIGHT_BLUE);
@@ -415,6 +417,7 @@ void printHowToPlay(int x, int y) {
     writeStringToBuffer(x, y+4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
 }
+// Todo: Info 텍스트 만들기
 #pragma endregion
 
 #pragma region 컨트롤러
