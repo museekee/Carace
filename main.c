@@ -521,12 +521,12 @@ void InGamePage()
             sPressed = false;
         }
 
-        if (gameInfo.score > 5000 && maxLane != 3)
+        if (gameInfo.score > 5000 && maxLane != 2)
+            setMaxLane(2);
+        else if (gameInfo.score > 4000 && maxLane != 3)
             setMaxLane(3);
-        else if (gameInfo.score > 4000 && maxLane != 4)
+        else if (gameInfo.score > 3000 && maxLane != 4)
             setMaxLane(4);
-        else if (gameInfo.score > 3000 && maxLane != 5)
-            setMaxLane(5);
 
         // 버퍼 변경
         flipBuffer();
@@ -659,17 +659,42 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     // 오른쪽 렌더링
     HowToPlayComponent();
 
-    bool isThirdStraight = maxLane <= 3;
-    bool isFourthStraight = maxLane <= 4;
-    bool isFifthStraight = maxLane <= 5;
+    // lane은 총 6개 (값: 5)임.
+    // 렌더링할 차선은 0, 1, 2, 3, 4, 5번 차선이 있음.
+    // maxLane이 4일 때는 0, 1, 2, 3, 4(중앙선) 차선이 렌더링됨.
+    // maxLane이 3일 때는 0, 1, 2, 3(중앙선) 차선이 렌더링됨.
+    // maxLane이 2일 때는 0, 1, 2(중앙선) 차선이 렌더링됨.
+
     // 차선 렌더링
-    drawLanes(lanes[0] - 2, data->treeOffset, COLOR_YELLOW, 1);
-    drawLanes(lanes[0] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-    drawLanes(lanes[1] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-    drawLanes(lanes[2] + laneOffset, data->treeOffset, isThirdStraight ? COLOR_YELLOW : COLOR_WHITE, isThirdStraight);
-    drawLanes(lanes[3] + laneOffset, data->treeOffset, isFourthStraight ? COLOR_YELLOW : COLOR_WHITE, isFourthStraight);
-    drawLanes(lanes[4] + laneOffset, data->treeOffset, isFifthStraight ? COLOR_YELLOW : COLOR_WHITE, isFifthStraight);
-    drawLanes(lanes[4] + laneOffset * 2 + 2, data->treeOffset, COLOR_YELLOW, 1);
+    drawLanes(lanes[0] - 2, data->treeOffset, COLOR_YELLOW, 1);         // 왼쪽 중앙선
+    drawLanes(lanes[0] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 0번 레인 오른쪽
+    drawLanes(lanes[1] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 1번 레인 오른쪽
+    // 2번 레인 오른쪽은 안 사라지고 때에 파선, 실선이 됨.
+    // 3번 레인 오른쪽은 파선, 실선, 사라짐이 됨.
+    // 4번 레인 오른쪽은 파선, 실선, 사라짐이 됨.
+    // 5번 레인 오른쪽은 중앙선, 사라짐이 됨.
+    if (maxLane == 2)
+    {
+        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
+    }
+    else if (maxLane == 3)
+    {
+        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
+    }
+    else if (maxLane == 4)
+    {
+        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[4] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
+    }
+    else if (maxLane == 5)
+    {
+        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[4] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+        drawLanes(lanes[4] + laneOffset * 2 + 2, data->treeOffset, COLOR_YELLOW, 1);
+    }
 
     // 플레이어 렌더링
     CarComponent(lanes[gameInfo.playerLane], PLAYER_Y, COLOR_RED);
@@ -693,7 +718,7 @@ void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
         return;
 
     NPCType npcType = WhatIsThisNPC();
-    int npcLane = getRandom(maxLane + 1);
+    int npcLane = getRandom(maxLane);
     int npcRandom = getRandom(14) + 1;
     int npcColor = npcType == Heart ? COLOR_RED : (npcRandom == COLOR_RED || npcRandom == COLOR_GRAY ? COLOR_LIGHT_GREEN : npcRandom); // 빨간색은 플레이어, 하트용 & gray는 너무 악질임. 하나도 안 보임.
     int npcX = lanes[npcLane];
@@ -735,8 +760,8 @@ void RenderNPC()
             }
             toRemove = true;
         }
-        // 화면 밖으로 나감
-        else if (npc->y >= HEIGHT)
+        // 화면 밖으로 나감(아래 || 오른쪽)
+        else if (npc->y >= HEIGHT || npc->x > lanes[maxLane])
         {
             toRemove = true;
         }
@@ -877,6 +902,7 @@ void drawForbiddenLanes()
             writeWideStringToBuffer(lanes[lane] + 6, i, L"/", COLOR_YELLOW);
             writeWideStringToBuffer(lanes[lane] + 7, i, L"/", COLOR_YELLOW);
             writeWideStringToBuffer(lanes[lane] + 8, i, L"/", COLOR_YELLOW);
+            writeWideStringToBuffer(lanes[lane] + 9, i, L"/", COLOR_YELLOW);
         }
     }
 }
@@ -992,7 +1018,7 @@ NPCType WhatIsThisNPC()
 
 void setMaxLane(int lane)
 {
-    if (maxLane == 3)
+    if (maxLane < 2)
         return; // 3차로면 개빡셈;
     maxLane = lane;
     if (gameInfo.playerLane > maxLane)
