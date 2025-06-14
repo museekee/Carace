@@ -14,12 +14,21 @@
 // 체력 아이템도 떨어지기
 // 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
 // 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
+#pragma region 열거형 선언
+typedef enum
+{
+    Heart,
+    Car
+} NPCType;
+#pragma endregion
+
 #pragma region 구조체 선언
 typedef struct _NPC
 {
-    int color; // 당연히 고정
-    int x;     // 당연히 고정
-    int y;     // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ
+    NPCType type; // NPC의 종류 (Heart, Car)
+    int color;    // 당연히 고정
+    int x;        // 당연히 고정
+    int y;        // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ
 } NPC;
 
 struct GameInfo
@@ -377,12 +386,14 @@ void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 
 void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
+    NPCType npcType = WhatIsThisNPC();
+
     int npcLane = rand() % 6;
     int npcColor = (rand() % 6) + 1;
     int npcX = lanes[npcLane];
     int npcY = 0;
 
-    NPC newNPC = {npcColor, npcX, npcY};
+    NPC newNPC = {npcType, npcColor, npcX, npcY};
     gameInfo.npcs[gameInfo.npcCount] = newNPC;
     gameInfo.npcCount++;
 }
@@ -401,6 +412,7 @@ void RenderNPC()
     for (int i = 0; i < gameInfo.npcCount; i++)
     {
         NPC *npc = &(gameInfo.npcs[i]);
+
         if (npc->y - 1 == PLAYER_Y && npc->x == lanes[gameInfo.playerLane])
         {
             removeNPCByIndex(i);
@@ -567,6 +579,19 @@ void removeNPCByIndex(int index)
     // 마지막 요소를 현재 위치로 이동
     gameInfo.npcs[index] = gameInfo.npcs[gameInfo.npcCount - 1];
     gameInfo.npcCount--;
+}
+
+NPCType WhatIsThisNPC()
+{
+    int randomValue = rand() % 100;
+    if (randomValue < 10)
+    {
+        return Heart;
+    }
+    else
+    {
+        return Car;
+    }
 }
 #pragma endregion
 
