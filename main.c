@@ -22,10 +22,10 @@ typedef struct _NPC {
 struct GameInfo {
     int meter;
     int speed; // 최소 10
-    int score; // 점수
+    double score; // 점수
     int heart;
     int playerLane;
-} gameInfo = { 0, 10, 0, 3, 2 };
+} gameInfo = { 0, 10, 0.0, 3, 2 };
 
 const int lanes[] = { 8, 18, 28, 38, 48, 58 };
 const int laneOffset = 8;
@@ -61,6 +61,7 @@ void PortalPage();
 void InGamePage();
 
 void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
+void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
 
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
@@ -70,6 +71,7 @@ void drawLanes(int x, int y, bool isYellow);
 void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
 void printInfo(int x, int y);
+void calculateScore();
 
 void movePlayer(int diection);
 void addSpeed(int value);
@@ -213,6 +215,7 @@ void PortalPage() {
 
 void InGamePage() {
     HANDLE renderTimer = NULL;
+    HANDLE calculateScoreTimer = NULL;
     
     // 키 상태 추적 변수들 (W/S만 필요)
     bool wPressed = false;
@@ -221,6 +224,8 @@ void InGamePage() {
     RenderTimerParam renderTimerParam = { 0 };
     int renderTimerDueTime = 111 - gameInfo.speed;
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
+
+    CreateTimerQueueTimer(&calculateScoreTimer, NULL, CalculateScoreTimerCallback, NULL, 0, 500, 0);
 
     while (1) {
         DWORD currentTime = GetTickCount();
@@ -231,6 +236,7 @@ void InGamePage() {
             switch (key) {
             case 13:
                 DeleteTimerQueueTimer(NULL, renderTimer, NULL);
+                DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
                 return;
             case 'A':
             case 'a':
@@ -312,6 +318,10 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
 
     data->treeOffset = (data->treeOffset + 1) % HEIGHT;
 }
+
+void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
+    calculateScore();
+}
 #pragma endregion
 
 #pragma region 컴포넌트
@@ -349,7 +359,7 @@ void HowToPlayComponent() {
 
     wchar_t scoreWstr[50];
     swprintf(scoreWstr, 50, L"• 점수: %d",
-            gameInfo.score);
+            (int)gameInfo.score);
     writeWideStringToBuffer(xStart+3, 19, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
@@ -430,6 +440,17 @@ void printInfo(int x, int y) {
     writeStringToBuffer(x, y+3, "   | | | '_ \\|  _/ _ \\ ", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+4, "  _| |_| | | | || (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+5, " |_____|_| |_|_| \\___/ ", COLOR_LIGHT_BLUE);
+}
+
+void calculateScore() {
+    double y_values[] = { // { 10 <= x <= 110 }의 y값. y=1.45\cdot e^{\left(0.032\cdot x\right)}\cdot2\ \left\{10\ \le\ x\ \le\ 110\ \right\} (desmos임)
+        3.863145, 4.556196, 5.143086, 5.812064, 6.574221,
+        7.442174, 8.430248, 9.554559, 10.833014, 12.285258,
+        13.932561, 15.798666, 17.909581, 20.293312, 22.980529,
+        26.004098, 29.399672, 33.205321, 37.461183, 42.209138,
+        47.493501
+    };
+    gameInfo.score += y_values[(gameInfo.speed - 10) / 5];
 }
 #pragma endregion
 
