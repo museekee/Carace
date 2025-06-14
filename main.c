@@ -40,8 +40,8 @@ typedef enum
 
 #pragma region 차선 위치
 const int lanes[] = {8, 18, 28, 38, 48, 58};
-const int laneOffset = 8;
-int maxLane = 5; // 차선은 오른쪽이 점점 사라지는 방식으로 갈거임.
+const int laneOffset = 8; // 차'로'의 크기
+int maxLane = 5;          // 차선은 오른쪽이 점점 사라지는 방식으로 갈거임.
 #pragma endregion
 
 #pragma region 글자 아스키 아트
@@ -239,7 +239,7 @@ struct GameInfo
     int playerLane; // 플레이어가 있는 차선
     NPC npcs[50];   // NPC 배열
     int npcCount;   // 현재 NPC 개수
-} gameInfo = {10, 3500.0, 5, 2, {0}, 0};
+} gameInfo = {10, 2990.0, 5, 2, {0}, 0};
 
 // 더블버퍼링을 위한 구조체
 typedef struct
@@ -284,8 +284,9 @@ void HowToPlayComponent();                             // 게임 방법 컴포�
 void CarComponent(int x, int y, int color);            // 자동차 컴포넌트
 void HeartComponent(int x, int y, int color);          // 하트 컴포넌트
 void drawTrees(int x, int y);                          // 나무 그리기
-void drawLanes(int x, int y, int color, int lineType); // 차선 그리기
-void drawForbiddenLanes();                             // 이제 막힌 차로 색칠하기
+void drawLines(int x, int y, int color, int lineType); // 차선 그리기
+void removeLine(int x);                                // 차선 지우기
+void drawForbiddenLines();                             // 이제 막힌 차로 색칠하기
 
 void gotoxy(int x, int y);                // 커서 위치 이동
 int getRandom(int max);                   // 랜덤 숫자 생성
@@ -666,44 +667,30 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     // maxLane이 2일 때는 0, 1, 2(중앙선) 차선이 렌더링됨.
 
     // 차선 렌더링
-    drawLanes(lanes[0] - 2, data->treeOffset, COLOR_YELLOW, 1);         // 왼쪽 중앙선
-    drawLanes(lanes[0] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 0번 레인 오른쪽
-    drawLanes(lanes[1] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 1번 레인 오른쪽
+    drawLines(lanes[0] - 2, data->treeOffset, COLOR_YELLOW, 1);         // 왼쪽 중앙선
+    drawLines(lanes[0] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 0번 레인 오른쪽
+    drawLines(lanes[1] + laneOffset, data->treeOffset, COLOR_WHITE, 0); // 1번 레인 오른쪽
     // 2번 레인 오른쪽은 안 사라지고 때에 파선, 실선이 됨.
     // 3번 레인 오른쪽은 파선, 실선, 사라짐이 됨.
     // 4번 레인 오른쪽은 파선, 실선, 사라짐이 됨.
     // 5번 레인 오른쪽은 중앙선, 사라짐이 됨.
-    if (maxLane == 2)
-    {
-        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
-    }
-    else if (maxLane == 3)
-    {
-        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
-    }
-    else if (maxLane == 4)
-    {
-        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[4] + laneOffset, data->treeOffset, COLOR_YELLOW, 1);
-    }
-    else if (maxLane == 5)
-    {
-        drawLanes(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[4] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-        drawLanes(lanes[4] + laneOffset * 2 + 2, data->treeOffset, COLOR_YELLOW, 1);
-    }
+    if (maxLane > 2)
+        drawLines(lanes[2] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+    if (maxLane > 3)
+        drawLines(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+    if (maxLane > 4)
+        drawLines(lanes[4] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+    if (maxLane > 5)
+        drawLines(lanes[5] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
 
     // 플레이어 렌더링
     CarComponent(lanes[gameInfo.playerLane], PLAYER_Y, COLOR_RED);
 
     data->treeOffset = (data->treeOffset + 1) % HEIGHT;
 
+    drawForbiddenLines();
     MoveNPC();
     RenderNPC();
-    drawForbiddenLanes();
 }
 
 void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
@@ -718,7 +705,7 @@ void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
         return;
 
     NPCType npcType = WhatIsThisNPC();
-    int npcLane = getRandom(maxLane);
+    int npcLane = getRandom(maxLane + 1);
     int npcRandom = getRandom(14) + 1;
     int npcColor = npcType == Heart ? COLOR_RED : (npcRandom == COLOR_RED || npcRandom == COLOR_GRAY ? COLOR_LIGHT_GREEN : npcRandom); // 빨간색은 플레이어, 하트용 & gray는 너무 악질임. 하나도 안 보임.
     int npcX = lanes[npcLane];
@@ -874,11 +861,14 @@ void drawTrees(int x, int y)
 }
 
 // 0: 파선, 1: 실선
-void drawLanes(int x, int y, int color, int lineType)
+void drawLines(int x, int y, int color, int lineType)
 {
     for (int i = 0; i < HEIGHT + 5; i += 5)
     {
         int laneY = (i + y) % HEIGHT;
+
+        for (int w = 0; w < laneOffset; w++)
+            writeToBuffer(x + w, laneY, L' ', COLOR_WHITE);
         writeWideStringToBuffer(x, laneY, lineType ? L"││" : L"┌┐", color);
         writeWideStringToBuffer(x, (laneY + 1) % HEIGHT, L"││", color);
         writeWideStringToBuffer(x, (laneY + 2) % HEIGHT, L"││", color);
@@ -887,22 +877,24 @@ void drawLanes(int x, int y, int color, int lineType)
     }
 }
 
-void drawForbiddenLanes()
+void removeLine(int x)
 {
+    for (int i = 0; i < HEIGHT; i++)
+    {
+        for (int w = 0; w < laneOffset; w++)
+            writeToBuffer(x + w, i, L' ', COLOR_WHITE);
+    }
+}
+void drawForbiddenLines()
+{
+    drawLines(lanes[maxLane] + laneOffset, 0, COLOR_YELLOW, 1); // 중앙선
     for (int lane = 5; lane > maxLane; lane--)
     {
         for (int i = 0; i < HEIGHT; i++)
         {
-            writeWideStringToBuffer(lanes[lane] + 0, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 1, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 2, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 3, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 4, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 5, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 6, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 7, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 8, i, L"/", COLOR_YELLOW);
-            writeWideStringToBuffer(lanes[lane] + 9, i, L"/", COLOR_YELLOW);
+            // 막힌 차로에 / 그리기
+            for (int w = 0; w < 10; w++)
+                writeWideStringToBuffer(lanes[lane] + w, i, L"/", COLOR_YELLOW);
         }
     }
 }
