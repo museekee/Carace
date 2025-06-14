@@ -551,11 +551,11 @@ void ScorePage()
 
     // 등급 기록용 텍스트
     char gradeText = "SABCDF"[gradeIdx];
-    printGrade(3, 1, COLOR_BRIGHT_WHITE);
+    printGrade(5, 1, COLOR_BRIGHT_WHITE);
     // 등급 출력
     for (int i = 0; i < 8; i++)
     {
-        writeStringToBuffer(23, 10 + i, Grade_labels[gradeIdx][i], Grade_colors[gradeIdx]);
+        writeStringToBuffer(25, 10 + i, Grade_labels[gradeIdx][i], Grade_colors[gradeIdx]);
     }
 
     // 선긋기
@@ -588,14 +588,14 @@ void ScorePage()
     }
 
     // Score
-    printScore(68, 1, COLOR_LIGHT_PURPLE);
+    printScore(67, 1, COLOR_LIGHT_PURPLE);
     char scoreStr[6];
     sprintf(scoreStr, "%05d", score);
     for (int i = 0; i < 5; i++)
     {
         for (int j = 0; j < 8; j++)
         {
-            writeStringToBuffer(66 + i * 11, 10 + j, Number_labels[scoreStr[i] - '0'][j], COLOR_PURPLE);
+            writeStringToBuffer(65 + i * 11, 10 + j, Number_labels[scoreStr[i] - '0'][j], COLOR_PURPLE);
         }
     }
 
@@ -777,26 +777,30 @@ void HowToPlayComponent()
     writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 11, L"• 60Hz에 따라 눈이 안 아픈 속도: 100km/h", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 12, L"• 점수는 속도에 따라 지수함수 모양으로", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 13, L"  증가하고, 개발자가 NPC생성 주기를", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 14, L"  500ms로 하드코딩했기 때문에 90km/h로", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 15, L"  설정하면 쉬운 게임을 즐길 수 있습니다.", COLOR_LIGHT_GREEN);
 
-    printInfo(xStart + 11, 13);
+    printInfo(xStart + 11, 17);
 
     wchar_t scoreWstr[50];
     swprintf(scoreWstr, 50, L"• 점수: %d",
              (int)gameInfo.score);
-    writeWideStringToBuffer(xStart + 3, 20, scoreWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
     swprintf(speedWstr, 50, L"• 속도: %dkm/h",
              gameInfo.speed);
-    writeWideStringToBuffer(xStart + 3, 21, speedWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
-    writeWideStringToBuffer(xStart + 3, 22, L"• 하트: ", COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 26, L"• 하트: ", COLOR_LIGHT_YELLOW);
     for (int i = 0; i < gameInfo.heart * 2; i += 2)
     {
         hearts[i] = L'❤';
     }
-    writeWideStringToBuffer(xStart + 9, 22, hearts, COLOR_RED);
+    writeWideStringToBuffer(xStart + 9, 26, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
