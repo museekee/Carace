@@ -30,11 +30,6 @@
 #define COLOR_BRIGHT_WHITE 15
 #pragma endregion
 
-// 점수에 따라 레인 줄여버릴까 확그냥
-// 제한 속도 준수 점수 추가
-// 체력 아이템도 떨어지기
-// 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
-// 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
 #pragma region 열거형 선언
 typedef enum
 {
@@ -291,6 +286,7 @@ void drawTrees(int x, int y);                 // 나무 그리기
 void drawLanes(int x, int y, bool isYellow);  // 차선 그리기
 
 void gotoxy(int x, int y);                // 커서 위치 이동
+int getRandom(int max);                   // 랜덤 숫자 생성
 void printTitle(int x, int y);            // 타이틀 출력
 void printHowToPlay(int x, int y);        // 게임 방법 출력
 void printInfo(int x, int y);             // 정보 출력
@@ -332,10 +328,6 @@ void Initialization()
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
-
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    srand((unsigned int)(counter.QuadPart ^ GetTickCount() ^ (uintptr_t)&counter));
 }
 #pragma endregion
 
@@ -682,12 +674,13 @@ void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 
 void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
+    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount * (long long int)&CreateNPCTimerCallback);
     if (gameInfo.npcCount >= 50)
         return;
 
     NPCType npcType = WhatIsThisNPC();
-    int npcLane = rand() % 6;
-    int npcRandom = (rand() % 15) + 1;
+    int npcLane = getRandom(6);
+    int npcRandom = getRandom(14) + 1;
     int npcColor = npcType == Heart ? COLOR_RED : (npcRandom == COLOR_RED || npcRandom == COLOR_GRAY ? COLOR_LIGHT_GREEN : npcRandom); // 빨간색은 플레이어, 하트용 & gray는 너무 악질임. 하나도 안 보임.
     int npcX = lanes[npcLane];
     int npcY = 0;
@@ -861,6 +854,11 @@ void gotoxy(int x, int y)
     SetConsoleCursorPosition(db.hConsole, Pos);
 }
 
+int getRandom(int max)
+{
+    return rand() % max; // 0 ~ max-1
+}
+
 // https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne
 void printTitle(int x, int y)
 {
@@ -942,7 +940,8 @@ void removeNPCByIndex(int index)
 
 NPCType WhatIsThisNPC()
 {
-    int randomValue = rand() % 100;
+    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount * (long long int)&WhatIsThisNPC);
+    int randomValue = getRandom(101);
     if (randomValue < 5)
     {
         return Heart;
