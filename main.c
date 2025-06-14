@@ -10,6 +10,7 @@
 
 #define PLAYER_Y 25
 
+// 점수에 따라 레인 줄여버릴까 확그냥
 // 제한 속도 준수 점수 추가
 // 체력 아이템도 떨어지기
 // 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
@@ -40,7 +41,7 @@ struct GameInfo
     int playerLane;
     NPC npcs[50];
     int npcCount;
-} gameInfo = {0, 10, 0.0, 3, 2, {0}, 0};
+} gameInfo = {0, 10, 0.0, 5, 2, {0}, 0};
 
 const int lanes[] = {8, 18, 28, 38, 48, 58};
 const int laneOffset = 8;
@@ -85,6 +86,7 @@ void RenderNPC();
 
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
+void HeartComponent(int x, int y, int color);
 void drawTrees(int x, int y);
 void drawLanes(int x, int y, bool isYellow);
 
@@ -93,6 +95,7 @@ void printHowToPlay(int x, int y);
 void printInfo(int x, int y);
 void calculateScore();
 void removeNPCByIndex(int index);
+NPCType WhatIsThisNPC();
 
 void movePlayer(int diection);
 void addSpeed(int value);
@@ -125,6 +128,7 @@ int main()
     initDoubleBuffer();
 
     PortalPage();
+    Initialization();
     InGamePage();
 
     cleanupDoubleBuffer();
@@ -147,7 +151,7 @@ void Initialization()
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 
-    srand(time(NULL));
+    srand((unsigned int)(time(NULL) * GetCurrentProcessId() + GetTickCount()));
 }
 #pragma endregion
 
@@ -259,7 +263,6 @@ void InGamePage()
     HANDLE calculateScoreTimer = NULL;
     HANDLE createNPCTimer = NULL;
 
-    // 키 상태 추적 변수들 (W/S만 필요)
     bool wPressed = false;
     bool sPressed = false;
 
@@ -305,7 +308,6 @@ void InGamePage()
                     {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
-                        // ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
@@ -320,7 +322,6 @@ void InGamePage()
                     {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
-                        // ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
@@ -386,8 +387,10 @@ void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 
 void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
-    NPCType npcType = WhatIsThisNPC();
+    if (gameInfo.npcCount >= 50)
+        return;
 
+    NPCType npcType = WhatIsThisNPC();
     int npcLane = rand() % 6;
     int npcColor = (rand() % 6) + 1;
     int npcX = lanes[npcLane];
@@ -408,23 +411,44 @@ void MoveNPC()
 
 void RenderNPC()
 {
-    // NPC 렌더링
-    for (int i = 0; i < gameInfo.npcCount; i++)
+    for (int i = gameInfo.npcCount - 1; i >= 0; i--)
     {
         NPC *npc = &(gameInfo.npcs[i]);
+        bool toRemove = false;
 
+        // 충돌 체크
         if (npc->y - 1 == PLAYER_Y && npc->x == lanes[gameInfo.playerLane])
         {
-            removeNPCByIndex(i);
-            gameInfo.heart--;
-            // 하트 0이면 게임오버 ㄱ는 ingame에서
+            if (npc->type == Heart)
+            {
+                if (gameInfo.heart < 5)
+                { // 하트 오버플로우..? 방지
+                    gameInfo.heart++;
+                }
+            }
+            else
+            {
+                gameInfo.heart--;
+            }
+            toRemove = true;
         }
+        // 화면 밖으로 나감
         else if (npc->y >= HEIGHT)
+        {
+            toRemove = true;
+        }
+
+        if (toRemove)
         {
             removeNPCByIndex(i);
         }
         else
-            CarComponent(npc->x, npc->y, npc->color);
+        {
+            if (npc->type == Car)
+                CarComponent(npc->x, npc->y, npc->color);
+            else if (npc->type == Heart)
+                HeartComponent(npc->x, npc->y, npc->color);
+        }
     }
 }
 #pragma endregion
@@ -463,26 +487,27 @@ void HowToPlayComponent()
 
     writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 11, L"• 60Hz에 따라 눈이 안 아픈 속도: 100km/h", COLOR_LIGHT_GREEN);
 
-    printInfo(xStart + 11, 12);
+    printInfo(xStart + 11, 13);
 
     wchar_t scoreWstr[50];
     swprintf(scoreWstr, 50, L"• 점수: %d",
              (int)gameInfo.score);
-    writeWideStringToBuffer(xStart + 3, 19, scoreWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 20, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
     swprintf(speedWstr, 50, L"• 속도: %dkm/h",
              gameInfo.speed);
-    writeWideStringToBuffer(xStart + 3, 20, speedWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 21, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
-    writeWideStringToBuffer(xStart + 3, 21, L"• 하트: ", COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart + 3, 22, L"• 하트: ", COLOR_LIGHT_YELLOW);
     for (int i = 0; i < gameInfo.heart * 2; i += 2)
     {
         hearts[i] = L'❤';
     }
-    writeWideStringToBuffer(xStart + 9, 21, hearts, COLOR_RED);
+    writeWideStringToBuffer(xStart + 9, 22, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
@@ -492,6 +517,14 @@ void CarComponent(int x, int y, int color)
     writeStringToBuffer(x, y - 2, " / ** \\", color);
     writeStringToBuffer(x, y - 1, "/oo  oo\\", color);
     writeStringToBuffer(x, y, " 0    0 ", color);
+}
+
+void HeartComponent(int x, int y, int color)
+{
+    writeStringToBuffer(x, y - 3, " **  ** ", color);
+    writeStringToBuffer(x, y - 2, "********", color);
+    writeStringToBuffer(x, y - 1, " ****** ", color);
+    writeStringToBuffer(x, y, "  ****  ", color);
 }
 
 // 나무 그리기
@@ -584,7 +617,7 @@ void removeNPCByIndex(int index)
 NPCType WhatIsThisNPC()
 {
     int randomValue = rand() % 100;
-    if (randomValue < 10)
+    if (randomValue < 5)
     {
         return Heart;
     }
