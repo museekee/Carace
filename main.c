@@ -69,6 +69,8 @@ void drawLanes(int x, int y, bool isYellow);
 
 void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
+void printInfo(int x, int y);
+
 void movePlayer(int diection);
 void addSpeed(int value);
 #pragma endregion
@@ -342,22 +344,25 @@ void HowToPlayComponent() {
 
     writeWideStringToBuffer(xStart+3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart+3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
+    
+    printInfo(xStart+11, 12);
+
     wchar_t scoreWstr[50];
-    swprintf(scoreWstr, 50, L"점수: %d",
+    swprintf(scoreWstr, 50, L"• 점수: %d",
             gameInfo.score);
-    writeWideStringToBuffer(xStart+3, 11, scoreWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart+3, 19, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
-    swprintf(speedWstr, 50, L"속도: %dkm/h",
+    swprintf(speedWstr, 50, L"• 속도: %dkm/h",
             gameInfo.speed);
-    writeWideStringToBuffer(xStart+3, 12, speedWstr, COLOR_LIGHT_YELLOW);
+    writeWideStringToBuffer(xStart+3, 20, speedWstr, COLOR_LIGHT_YELLOW);
 
-    wchar_t hearts[] = L"♡♡♡♡♡";
-    writeWideStringToBuffer(xStart+3, 13, L"하트: ", COLOR_LIGHT_YELLOW);
-    for (int i = 0; i < gameInfo.heart; i++) {
-        hearts[i] = L'♥';
+    wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
+    writeWideStringToBuffer(xStart+3, 21, L"• 하트: ", COLOR_LIGHT_YELLOW);
+    for (int i = 0; i < gameInfo.heart*2; i+=2) {
+        hearts[i] = L'❤';
     }
-    writeWideStringToBuffer(xStart+7, 13, hearts, COLOR_RED);
+    writeWideStringToBuffer(xStart+9, 21, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
@@ -417,7 +422,15 @@ void printHowToPlay(int x, int y) {
     writeStringToBuffer(x, y+4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y+5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
 }
-// Todo: Info 텍스트 만들기
+
+void printInfo(int x, int y) {
+    writeStringToBuffer(x, y,   "  _____        __      ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y+1, " |_   _|      / _|     ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y+2, "   | |  _ __ | |_ ___  ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y+3, "   | | | '_ \\|  _/ _ \\ ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y+4, "  _| |_| | | | || (_) |", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y+5, " |_____|_| |_|_| \\___/ ", COLOR_LIGHT_BLUE);
+}
 #pragma endregion
 
 #pragma region 컨트롤러
