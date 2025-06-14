@@ -13,27 +13,32 @@
 // 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
 // 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
 #pragma region 구조체 선언
-typedef struct _NPC {
+typedef struct _NPC
+{
     int color; // 당연히 고정
-    int x; // 당연히 고정
-    int y; // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ
+    int x;     // 당연히 고정
+    int y;     // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ
 } NPC;
 
-struct GameInfo {
+struct GameInfo
+{
     int meter;
-    int speed; // 최소 10
+    int speed;    // 최소 10
     double score; // 점수
     int heart;
     int playerLane;
-} gameInfo = { 0, 10, 0.0, 3, 2 };
+    NPC npcs[50];
+    int npcCount;
+} gameInfo = {0, 10, 0.0, 3, 2, {0}, 0};
 
-const int lanes[] = { 8, 18, 28, 38, 48, 58 };
+const int lanes[] = {8, 18, 28, 38, 48, 58};
 const int laneOffset = 8;
 
 // 더블버퍼링을 위한 구조체
-typedef struct {
+typedef struct
+{
     HANDLE hConsole;
-    CHAR_INFO* buffer;
+    CHAR_INFO *buffer;
     COORD bufferSize;
     COORD bufferCoord;
     SMALL_RECT writeRegion;
@@ -41,9 +46,10 @@ typedef struct {
 
 DoubleBuffer db;
 
-typedef struct RenderTimerParam {
+typedef struct RenderTimerParam
+{
     int treeOffset;
-}  RenderTimerParam;
+} RenderTimerParam;
 #pragma endregion
 
 #pragma region 함수 선언
@@ -53,8 +59,8 @@ void cleanupDoubleBuffer();
 void clearBuffer(wchar_t fillChar, WORD color);
 void writeToBuffer(int x, int y, wchar_t ch, WORD color);
 void writeCharToBuffer(int x, int y, char ch, WORD color);
-void writeStringToBuffer(int x, int y, const char* str, WORD color);
-void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color);
+void writeStringToBuffer(int x, int y, const char *str, WORD color);
+void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color);
 void flipBuffer();
 
 void PortalPage();
@@ -62,6 +68,8 @@ void InGamePage();
 
 void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
 void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
+void createAndMoveNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
+void renderNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
 
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
@@ -98,7 +106,8 @@ void addSpeed(int value);
 #pragma endregion
 
 #pragma region 메인함수와 초기화
-int main() {
+int main()
+{
     Initialization();
     initDoubleBuffer();
 
@@ -109,7 +118,8 @@ int main() {
     return 0;
 }
 
-void Initialization() {
+void Initialization()
+{
     HANDLE hConsole;
     CONSOLE_CURSOR_INFO ConsoleCursor;
 
@@ -129,7 +139,8 @@ void Initialization() {
 #pragma endregion
 
 #pragma region 더블버퍼링 설정
-void initDoubleBuffer() {
+void initDoubleBuffer()
+{
     db.hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     db.bufferSize.X = WIDTH;
     db.bufferSize.Y = HEIGHT;
@@ -140,7 +151,7 @@ void initDoubleBuffer() {
     db.writeRegion.Right = WIDTH - 1;
     db.writeRegion.Bottom = HEIGHT - 1;
 
-    db.buffer = (CHAR_INFO*)malloc(WIDTH * HEIGHT * sizeof(CHAR_INFO));
+    db.buffer = (CHAR_INFO *)malloc(WIDTH * HEIGHT * sizeof(CHAR_INFO));
 
     CONSOLE_CURSOR_INFO cursorInfo;
     cursorInfo.dwSize = 1;
@@ -148,49 +159,62 @@ void initDoubleBuffer() {
     SetConsoleCursorInfo(db.hConsole, &cursorInfo);
 }
 
-void clearBuffer(wchar_t fillChar, WORD color) {
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+void clearBuffer(wchar_t fillChar, WORD color)
+{
+    for (int i = 0; i < WIDTH * HEIGHT; i++)
+    {
         db.buffer[i].Char.UnicodeChar = fillChar;
         db.buffer[i].Attributes = color;
     }
 }
 
 // 캐릭터 하나
-void writeToBuffer(int x, int y, wchar_t ch, WORD color) {
-    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+void writeToBuffer(int x, int y, wchar_t ch, WORD color)
+{
+    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT)
+    {
         int index = y * WIDTH + x;
         db.buffer[index].Char.UnicodeChar = ch;
         db.buffer[index].Attributes = color;
     }
 }
 
-void writeCharToBuffer(int x, int y, char ch, WORD color) {
+void writeCharToBuffer(int x, int y, char ch, WORD color)
+{
     writeToBuffer(x, y, (wchar_t)ch, color);
 }
 
-void writeStringToBuffer(int x, int y, const char* str, WORD color) {
+void writeStringToBuffer(int x, int y, const char *str, WORD color)
+{
     int len = strlen(str);
-    for (int i = 0; i < len && (x + i) < WIDTH; i++) {
+    for (int i = 0; i < len && (x + i) < WIDTH; i++)
+    {
         writeCharToBuffer(x + i, y, str[i], color);
     }
 }
 
-void writeWideStringToBuffer(int x, int y, const wchar_t* str, WORD color) {
-    if (str == NULL) return;
-    
+void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color)
+{
+    if (str == NULL)
+        return;
+
     int len = wcslen(str);
-    for (int i = 0; i < len && (x + i) < WIDTH; i++) {
-        if (x + i >= 0 && y >= 0 && y < HEIGHT) {
+    for (int i = 0; i < len && (x + i) < WIDTH; i++)
+    {
+        if (x + i >= 0 && y >= 0 && y < HEIGHT)
+        {
             writeToBuffer(x + i, y, str[i], color);
         }
     }
 }
 
-void flipBuffer() {
+void flipBuffer()
+{
     WriteConsoleOutputW(db.hConsole, db.buffer, db.bufferSize,
-                       db.bufferCoord, &db.writeRegion);
+                        db.bufferCoord, &db.writeRegion);
 }
-void cleanupDoubleBuffer() {
+void cleanupDoubleBuffer()
+{
     free(db.buffer);
 }
 #pragma endregion
@@ -199,44 +223,59 @@ void cleanupDoubleBuffer() {
 /************/
 /** PAGES **/
 /************/
-void PortalPage() {
+void PortalPage()
+{
     clearBuffer(' ', COLOR_WHITE);
     printTitle(1, 5);
     writeStringToBuffer(47, 20, "[PRESS 'ENTER' TO START]", COLOR_WHITE);
     flipBuffer();
 
-    while (1) {
+    while (1)
+    {
         int key = _getch();
-        if (key == 13) {
+        if (key == 13)
+        {
             break;
         }
     }
 }
 
-void InGamePage() {
+void InGamePage()
+{
     HANDLE renderTimer = NULL;
     HANDLE calculateScoreTimer = NULL;
-    
+    HANDLE createAndMoveNPCTimer = NULL;
+    HANDLE renderNPCTimer = NULL;
+
     // 키 상태 추적 변수들 (W/S만 필요)
     bool wPressed = false;
     bool sPressed = false;
 
-    RenderTimerParam renderTimerParam = { 0 };
+    RenderTimerParam renderTimerParam = {0};
     int renderTimerDueTime = 111 - gameInfo.speed;
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
 
     CreateTimerQueueTimer(&calculateScoreTimer, NULL, CalculateScoreTimerCallback, NULL, 0, 500, 0);
 
-    while (1) {
+    CreateTimerQueueTimer(&createAndMoveNPCTimer, NULL, createAndMoveNPCTimerCallback, NULL, 0, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 100, 0);
+
+    CreateTimerQueueTimer(&renderNPCTimer, NULL, renderNPCTimerCallback, NULL, 0, 50, 0);
+
+    while (1)
+    {
         DWORD currentTime = GetTickCount();
         int oldSpeed = gameInfo.speed;
 
-        if (_kbhit()) {
+        if (_kbhit())
+        {
             int key = _getch();
-            switch (key) {
+            switch (key)
+            {
             case 13:
                 DeleteTimerQueueTimer(NULL, renderTimer, NULL);
                 DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
+                DeleteTimerQueueTimer(NULL, createAndMoveNPCTimer, NULL);
+                DeleteTimerQueueTimer(NULL, renderNPCTimer, NULL);
                 return;
             case 'A':
             case 'a':
@@ -248,41 +287,49 @@ void InGamePage() {
                 break;
             case 'W':
             case 'w':
-                if (!wPressed) {
+                if (!wPressed)
+                {
                     addSpeed(5);
                     wPressed = true;
-                    
-                    if (oldSpeed != gameInfo.speed) {
+
+                    if (oldSpeed != gameInfo.speed)
+                    {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
+                        ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
             case 'S':
             case 's':
-                if (!sPressed) {
+                if (!sPressed)
+                {
                     addSpeed(-5);
                     sPressed = true;
-                    
-                    if (oldSpeed != gameInfo.speed) {
+
+                    if (oldSpeed != gameInfo.speed)
+                    {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
+                        ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
             }
         }
 
-        if (!(GetAsyncKeyState('W') & 0x8000) && !(GetAsyncKeyState('w') & 0x8000)) {
+        if (!(GetAsyncKeyState('W') & 0x8000) && !(GetAsyncKeyState('w') & 0x8000))
+        {
             wPressed = false;
         }
-        if (!(GetAsyncKeyState('S') & 0x8000) && !(GetAsyncKeyState('s') & 0x8000)) {
+        if (!(GetAsyncKeyState('S') & 0x8000) && !(GetAsyncKeyState('s') & 0x8000))
+        {
             sPressed = false;
         }
 
         // 버퍼 변경
         flipBuffer();
-        
+
         Sleep(1);
     }
 }
@@ -292,8 +339,9 @@ void InGamePage() {
 /*************************/
 /** TIMER CALLBACKS **/
 /************************/
-void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
-    RenderTimerParam* data = (RenderTimerParam*)lpParam;
+void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+{
+    RenderTimerParam *data = (RenderTimerParam *)lpParam;
 
     clearBuffer(L' ', COLOR_WHITE);
 
@@ -319,8 +367,38 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
     data->treeOffset = (data->treeOffset + 1) % HEIGHT;
 }
 
-void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
+void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+{
     calculateScore();
+}
+
+void createAndMoveNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+{
+    // Move
+    for (int i = 0; i < gameInfo.npcCount; i++)
+    {
+        gameInfo.npcs[i].y += 1;
+    }
+
+    // Create
+    int npcLane = rand() % 6;
+    int npcColor = (rand() % 6) + 1;
+    int npcX = lanes[npcLane];
+    int npcY = 0;
+
+    NPC newNPC = {npcColor, npcX, npcY};
+    gameInfo.npcs[gameInfo.npcCount] = newNPC;
+    gameInfo.npcCount++;
+}
+
+void renderNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+{
+    // NPC 렌더링
+    for (int i = 0; i < gameInfo.npcCount; i++)
+    {
+        NPC *npc = &(gameInfo.npcs[i]);
+        CarComponent(npc->x, npc->y, npc->color);
+    }
 }
 #pragma endregion
 
@@ -328,74 +406,84 @@ void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired) {
 /********************/
 /** COMPONENTS **/
 /********************/
-void HowToPlayComponent() {
+void HowToPlayComponent()
+{
     int xStart = 75;
     int xEnd = 119;
 
     // 테두리 그리기
     writeToBuffer(xStart, 0, L'┌', COLOR_GRAY);
-    for (int i = xStart+1; i < xEnd; i++) {
+    for (int i = xStart + 1; i < xEnd; i++)
+    {
         writeToBuffer(i, 0, L'─', COLOR_GRAY);
     }
     writeToBuffer(xEnd, 0, L'┐', COLOR_GRAY);
 
-    for (int i = 1; i < HEIGHT-1; i++) {
+    for (int i = 1; i < HEIGHT - 1; i++)
+    {
         writeToBuffer(xStart, i, L'│', COLOR_GRAY);
         writeToBuffer(xEnd, i, L'│', COLOR_GRAY);
     }
 
-    writeToBuffer(xStart, HEIGHT-1, L'└', COLOR_GRAY);
-    for (int i = xStart+1; i < xEnd; i++) {
-        writeToBuffer(i, HEIGHT-1, L'─', COLOR_GRAY);
+    writeToBuffer(xStart, HEIGHT - 1, L'└', COLOR_GRAY);
+    for (int i = xStart + 1; i < xEnd; i++)
+    {
+        writeToBuffer(i, HEIGHT - 1, L'─', COLOR_GRAY);
     }
-    writeToBuffer(xEnd, HEIGHT-1, L'┘', COLOR_GRAY);
+    writeToBuffer(xEnd, HEIGHT - 1, L'┘', COLOR_GRAY);
 
-    printHowToPlay(xStart+4, 2);
+    printHowToPlay(xStart + 4, 2);
 
-    writeWideStringToBuffer(xStart+3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart+3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
-    
-    printInfo(xStart+11, 12);
+    writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
+
+    printInfo(xStart + 11, 12);
 
     wchar_t scoreWstr[50];
     swprintf(scoreWstr, 50, L"• 점수: %d",
-            (int)gameInfo.score);
-    writeWideStringToBuffer(xStart+3, 19, scoreWstr, COLOR_LIGHT_YELLOW);
+             (int)gameInfo.score);
+    writeWideStringToBuffer(xStart + 3, 19, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
     swprintf(speedWstr, 50, L"• 속도: %dkm/h",
-            gameInfo.speed);
-    writeWideStringToBuffer(xStart+3, 20, speedWstr, COLOR_LIGHT_YELLOW);
+             gameInfo.speed);
+    writeWideStringToBuffer(xStart + 3, 20, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
-    writeWideStringToBuffer(xStart+3, 21, L"• 하트: ", COLOR_LIGHT_YELLOW);
-    for (int i = 0; i < gameInfo.heart*2; i+=2) {
+    writeWideStringToBuffer(xStart + 3, 21, L"• 하트: ", COLOR_LIGHT_YELLOW);
+    for (int i = 0; i < gameInfo.heart * 2; i += 2)
+    {
         hearts[i] = L'❤';
     }
-    writeWideStringToBuffer(xStart+9, 21, hearts, COLOR_RED);
+    writeWideStringToBuffer(xStart + 9, 21, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
-void CarComponent(int x, int y, int color) {
-    writeStringToBuffer(x, y-3, "  ____  ", color);
-    writeStringToBuffer(x, y-2, " / ** \\", color);
-    writeStringToBuffer(x, y-1, "/oo  oo\\", color);
-    writeStringToBuffer(x, y,   " 0    0 ", color);
+void CarComponent(int x, int y, int color)
+{
+    writeStringToBuffer(x, y - 3, "  ____  ", color);
+    writeStringToBuffer(x, y - 2, " / ** \\", color);
+    writeStringToBuffer(x, y - 1, "/oo  oo\\", color);
+    writeStringToBuffer(x, y, " 0    0 ", color);
 }
 
 // 나무 그리기
-void drawTrees(int x, int y) {
-    for (int i = 0; i < HEIGHT + 5; i += 5) {
+void drawTrees(int x, int y)
+{
+    for (int i = 0; i < HEIGHT + 5; i += 5)
+    {
         int treeY = (i + y) % HEIGHT;
-        writeStringToBuffer(x, treeY,     "  /\\  ", COLOR_GREEN);
-        writeStringToBuffer(x, (treeY + 1) % HEIGHT,   " /**\\ ", COLOR_GREEN);
-        writeStringToBuffer(x, (treeY + 2) % HEIGHT,   "/****\\", COLOR_GREEN);
-        writeStringToBuffer(x, (treeY + 3) % HEIGHT,   "  ||  ", COLOR_YELLOW);
-        writeStringToBuffer(x, (treeY + 4) % HEIGHT,   "    ", COLOR_YELLOW);
+        writeStringToBuffer(x, treeY, "  /\\  ", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 1) % HEIGHT, " /**\\ ", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 2) % HEIGHT, "/****\\", COLOR_GREEN);
+        writeStringToBuffer(x, (treeY + 3) % HEIGHT, "  ||  ", COLOR_YELLOW);
+        writeStringToBuffer(x, (treeY + 4) % HEIGHT, "    ", COLOR_YELLOW);
     }
 }
-void drawLanes(int x, int y, bool isYellow) {
-    for (int i = 0; i < HEIGHT + 5; i += 5) {
+void drawLanes(int x, int y, bool isYellow)
+{
+    for (int i = 0; i < HEIGHT + 5; i += 5)
+    {
         int laneY = (i + y) % HEIGHT;
         int color = isYellow ? COLOR_YELLOW : COLOR_BRIGHT_WHITE;
         writeWideStringToBuffer(x, laneY, isYellow ? L"││" : L"┌┐", color);
@@ -412,44 +500,47 @@ void drawLanes(int x, int y, bool isYellow) {
 /** FUNCTIONS **/
 /****************/
 // https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne
-void printTitle(int x, int y) {
-    writeStringToBuffer(x, y,   "  /$$$$$$  /$$$$$$$         /$$$$$$   /$$$$$$  /$$$$$$$        /$$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$ /$$   /$$  /$$$$$$", COLOR_RED);
-    writeStringToBuffer(x, y+1, " /$$__  $$| $$__  $$       /$$__  $$ /$$__  $$| $$__  $$      | $$__  $$ /$$__  $$ /$$__  $$|_  $$_/| $$$ | $$ /$$__  $$", COLOR_RED);
-    writeStringToBuffer(x, y+2, "|__/  \\ $$| $$  \\ $$      | $$  \\__/| $$  \\ $$| $$  \\ $$      | $$  \\ $$| $$  \\ $$| $$  \\__/  | $$  | $$$$| $$| $$  \\__/", COLOR_RED);
-    writeStringToBuffer(x, y+3, "  /$$$$$$/| $$  | $$      | $$      | $$$$$$$$| $$$$$$$/      | $$$$$$$/| $$$$$$$$| $$        | $$  | $$ $$ $$| $$ /$$$$", COLOR_RED);
-    writeStringToBuffer(x, y+4, " /$$____/ | $$  | $$      | $$      | $$__  $$| $$__  $$      | $$__  $$| $$__  $$| $$        | $$  | $$  $$$$| $$|_  $$", COLOR_RED);
-    writeStringToBuffer(x, y+5, "| $$      | $$  | $$      | $$    $$| $$  | $$| $$  \\ $$      | $$  \\ $$| $$  | $$| $$    $$  | $$  | $$\\  $$$| $$  \\ $$", COLOR_RED);
-    writeStringToBuffer(x, y+6, "| $$$$$$$$| $$$$$$$/      |  $$$$$$/| $$  | $$| $$  | $$      | $$  | $$| $$  | $$|  $$$$$$/ /$$$$$$| $$ \\  $$|  $$$$$$/", COLOR_RED);
-    writeStringToBuffer(x, y+7, "|________/|_______/        \\______/ |__/  |__/|__/  |__/      |__/  |__/|__/  |__/ \\______/ |______/|__/  \\__/ \\______/ ", COLOR_RED);
+void printTitle(int x, int y)
+{
+    writeStringToBuffer(x, y, "  /$$$$$$  /$$$$$$$         /$$$$$$   /$$$$$$  /$$$$$$$        /$$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$ /$$   /$$  /$$$$$$", COLOR_RED);
+    writeStringToBuffer(x, y + 1, " /$$__  $$| $$__  $$       /$$__  $$ /$$__  $$| $$__  $$      | $$__  $$ /$$__  $$ /$$__  $$|_  $$_/| $$$ | $$ /$$__  $$", COLOR_RED);
+    writeStringToBuffer(x, y + 2, "|__/  \\ $$| $$  \\ $$      | $$  \\__/| $$  \\ $$| $$  \\ $$      | $$  \\ $$| $$  \\ $$| $$  \\__/  | $$  | $$$$| $$| $$  \\__/", COLOR_RED);
+    writeStringToBuffer(x, y + 3, "  /$$$$$$/| $$  | $$      | $$      | $$$$$$$$| $$$$$$$/      | $$$$$$$/| $$$$$$$$| $$        | $$  | $$ $$ $$| $$ /$$$$", COLOR_RED);
+    writeStringToBuffer(x, y + 4, " /$$____/ | $$  | $$      | $$      | $$__  $$| $$__  $$      | $$__  $$| $$__  $$| $$        | $$  | $$  $$$$| $$|_  $$", COLOR_RED);
+    writeStringToBuffer(x, y + 5, "| $$      | $$  | $$      | $$    $$| $$  | $$| $$  \\ $$      | $$  \\ $$| $$  | $$| $$    $$  | $$  | $$\\  $$$| $$  \\ $$", COLOR_RED);
+    writeStringToBuffer(x, y + 6, "| $$$$$$$$| $$$$$$$/      |  $$$$$$/| $$  | $$| $$  | $$      | $$  | $$| $$  | $$|  $$$$$$/ /$$$$$$| $$ \\  $$|  $$$$$$/", COLOR_RED);
+    writeStringToBuffer(x, y + 7, "|________/|_______/        \\______/ |__/  |__/|__/  |__/      |__/  |__/|__/  |__/ \\______/ |______/|__/  \\__/ \\______/ ", COLOR_RED);
 }
 
 // https://patorjk.com/software/taag/#p=display&f=Big
-void printHowToPlay(int x, int y) {
-    writeStringToBuffer(x, y,   "  _    _                 _______", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+1, " | |  | |               |__   __|", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+2, " | |__| | _____      __    | | ___", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+3, " |  __  |/ _ \\ \\ /\\ / /    | |/ _ \\", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
+void printHowToPlay(int x, int y)
+{
+    writeStringToBuffer(x, y, "  _    _                 _______", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 1, " | |  | |               |__   __|", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 2, " | |__| | _____      __    | | ___", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 3, " |  __  |/ _ \\ \\ /\\ / /    | |/ _ \\", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 4, " | |  | | (_) \\ V  V /     | | (_) |", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 5, " |_|  |_|\\___/ \\_/\\_/      |_|\\___/", COLOR_LIGHT_BLUE);
 }
 
-void printInfo(int x, int y) {
-    writeStringToBuffer(x, y,   "  _____        __      ", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+1, " |_   _|      / _|     ", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+2, "   | |  _ __ | |_ ___  ", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+3, "   | | | '_ \\|  _/ _ \\ ", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+4, "  _| |_| | | | || (_) |", COLOR_LIGHT_BLUE);
-    writeStringToBuffer(x, y+5, " |_____|_| |_|_| \\___/ ", COLOR_LIGHT_BLUE);
+void printInfo(int x, int y)
+{
+    writeStringToBuffer(x, y, "  _____        __      ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 1, " |_   _|      / _|     ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 2, "   | |  _ __ | |_ ___  ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 3, "   | | | '_ \\|  _/ _ \\ ", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 4, "  _| |_| | | | || (_) |", COLOR_LIGHT_BLUE);
+    writeStringToBuffer(x, y + 5, " |_____|_| |_|_| \\___/ ", COLOR_LIGHT_BLUE);
 }
 
-void calculateScore() {
-    double y_values[] = { // { 10 <= x <= 110 }의 y값. y=1.45\cdot e^{\left(0.032\cdot x\right)}\cdot2\ \left\{10\ \le\ x\ \le\ 110\ \right\} (desmos임)
-        3.863145, 4.556196, 5.143086, 5.812064, 6.574221,
-        7.442174, 8.430248, 9.554559, 10.833014, 12.285258,
-        13.932561, 15.798666, 17.909581, 20.293312, 22.980529,
-        26.004098, 29.399672, 33.205321, 37.461183, 42.209138,
-        47.493501
-    };
+void calculateScore()
+{
+    double y_values[] = {// { 10 <= x <= 110 }의 y값. y=1.45\cdot e^{\left(0.032\cdot x\right)}\cdot2\ \left\{10\ \le\ x\ \le\ 110\ \right\} (desmos임)
+                         3.863145, 4.556196, 5.143086, 5.812064, 6.574221,
+                         7.442174, 8.430248, 9.554559, 10.833014, 12.285258,
+                         13.932561, 15.798666, 17.909581, 20.293312, 22.980529,
+                         26.004098, 29.399672, 33.205321, 37.461183, 42.209138,
+                         47.493501};
     gameInfo.score += y_values[(gameInfo.speed - 10) / 5];
 }
 #pragma endregion
@@ -460,29 +551,40 @@ void calculateScore() {
 /********************/
 
 // { direction } 0: Left, 1: Right
-void movePlayer(int direction) {
+void movePlayer(int direction)
+{
     if (direction == 0 && gameInfo.playerLane > 0)
         gameInfo.playerLane--;
     else if (direction == 1 && gameInfo.playerLane < 5)
         gameInfo.playerLane++;
 }
-void addSpeed(int value) {
-    int* speed = &(gameInfo.speed);
-    
-    if (value < 0) {
+void addSpeed(int value)
+{
+    int *speed = &(gameInfo.speed);
+
+    if (value < 0)
+    {
         // 감속: 최소 속도 10까지
         int newSpeed = *speed + value;
-        if (newSpeed >= 10) {
+        if (newSpeed >= 10)
+        {
             *speed = newSpeed;
-        } else {
+        }
+        else
+        {
             *speed = 10;
         }
-    } else if (value > 0) {
+    }
+    else if (value > 0)
+    {
         // 가속: 최대 속도 110까지
         int newSpeed = *speed + value;
-        if (newSpeed <= 110) {
+        if (newSpeed <= 110)
+        {
             *speed = newSpeed;
-        } else {
+        }
+        else
+        {
             *speed = 110;
         }
     }
