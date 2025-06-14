@@ -8,6 +8,8 @@
 #define WIDTH 120
 #define HEIGHT 29
 
+#define PLAYER_Y 25
+
 // 제한 속도 준수 점수 추가
 // 체력 아이템도 떨어지기
 // 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
@@ -68,8 +70,9 @@ void InGamePage();
 
 void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
 void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
-void createAndMoveNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
-void renderNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
+void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
+void MoveNPC();
+void RenderNPC();
 
 void HowToPlayComponent();
 void CarComponent(int x, int y, int color);
@@ -80,12 +83,13 @@ void printTitle(int x, int y);
 void printHowToPlay(int x, int y);
 void printInfo(int x, int y);
 void calculateScore();
+void removeNPCByIndex(int index);
 
 void movePlayer(int diection);
 void addSpeed(int value);
 #pragma endregion
 
-// https://dimigo.goorm.io/qna/22465 이런 색상은 어떄요?
+// https://dimigo.goorm.io/qna/22465 이런 색상은 어때요?
 #pragma region 색상
 #define COLOR_BLACK 0
 #define COLOR_BLUE 1
@@ -244,8 +248,7 @@ void InGamePage()
 {
     HANDLE renderTimer = NULL;
     HANDLE calculateScoreTimer = NULL;
-    HANDLE createAndMoveNPCTimer = NULL;
-    HANDLE renderNPCTimer = NULL;
+    HANDLE createNPCTimer = NULL;
 
     // 키 상태 추적 변수들 (W/S만 필요)
     bool wPressed = false;
@@ -257,9 +260,7 @@ void InGamePage()
 
     CreateTimerQueueTimer(&calculateScoreTimer, NULL, CalculateScoreTimerCallback, NULL, 0, 500, 0);
 
-    CreateTimerQueueTimer(&createAndMoveNPCTimer, NULL, createAndMoveNPCTimerCallback, NULL, 0, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 100, 0);
-
-    CreateTimerQueueTimer(&renderNPCTimer, NULL, renderNPCTimerCallback, NULL, 0, 50, 0);
+    CreateTimerQueueTimer(&createNPCTimer, NULL, CreateNPCTimerCallback, NULL, 0, 500, 0);
 
     while (1)
     {
@@ -274,8 +275,7 @@ void InGamePage()
             case 13:
                 DeleteTimerQueueTimer(NULL, renderTimer, NULL);
                 DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
-                DeleteTimerQueueTimer(NULL, createAndMoveNPCTimer, NULL);
-                DeleteTimerQueueTimer(NULL, renderNPCTimer, NULL);
+                DeleteTimerQueueTimer(NULL, createNPCTimer, NULL);
                 return;
             case 'A':
             case 'a':
@@ -296,7 +296,7 @@ void InGamePage()
                     {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
-                        ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
+                        // ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
@@ -311,7 +311,7 @@ void InGamePage()
                     {
                         renderTimerDueTime = 111 - gameInfo.speed;
                         ChangeTimerQueueTimer(NULL, renderTimer, renderTimerDueTime, renderTimerDueTime);
-                        ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
+                        // ChangeTimerQueueTimer(NULL, createAndMoveNPCTimer, renderTimerDueTime < 80 ? renderTimerDueTime * 100 : 1000, renderTimerDueTime < 80 ? renderTimerDueTime * 4 : 100);
                     }
                 }
                 break;
@@ -362,9 +362,12 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     drawLanes(lanes[4] + laneOffset * 2 + 2, data->treeOffset, true);
 
     // 플레이어 렌더링
-    CarComponent(lanes[gameInfo.playerLane], 25, COLOR_RED);
+    CarComponent(lanes[gameInfo.playerLane], PLAYER_Y, COLOR_RED);
 
     data->treeOffset = (data->treeOffset + 1) % HEIGHT;
+
+    MoveNPC();
+    RenderNPC();
 }
 
 void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
@@ -372,15 +375,8 @@ void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     calculateScore();
 }
 
-void createAndMoveNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
-    // Move
-    for (int i = 0; i < gameInfo.npcCount; i++)
-    {
-        gameInfo.npcs[i].y += 1;
-    }
-
-    // Create
     int npcLane = rand() % 6;
     int npcColor = (rand() % 6) + 1;
     int npcX = lanes[npcLane];
@@ -391,13 +387,32 @@ void createAndMoveNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     gameInfo.npcCount++;
 }
 
-void renderNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+void MoveNPC()
+{
+    for (int i = 0; i < gameInfo.npcCount; i++)
+    {
+        gameInfo.npcs[i].y += 1;
+    }
+}
+
+void RenderNPC()
 {
     // NPC 렌더링
     for (int i = 0; i < gameInfo.npcCount; i++)
     {
         NPC *npc = &(gameInfo.npcs[i]);
-        CarComponent(npc->x, npc->y, npc->color);
+        if (npc->y - 1 == PLAYER_Y && npc->x == lanes[gameInfo.playerLane])
+        {
+            removeNPCByIndex(i);
+            gameInfo.heart--;
+            // 하트 0이면 게임오버 ㄱ는 ingame에서
+        }
+        else if (npc->y >= HEIGHT)
+        {
+            removeNPCByIndex(i);
+        }
+        else
+            CarComponent(npc->x, npc->y, npc->color);
     }
 }
 #pragma endregion
@@ -542,6 +557,16 @@ void calculateScore()
                          26.004098, 29.399672, 33.205321, 37.461183, 42.209138,
                          47.493501};
     gameInfo.score += y_values[(gameInfo.speed - 10) / 5];
+}
+
+void removeNPCByIndex(int index)
+{
+    if (index < 0 || index >= gameInfo.npcCount)
+        return;
+
+    // 마지막 요소를 현재 위치로 이동
+    gameInfo.npcs[index] = gameInfo.npcs[gameInfo.npcCount - 1];
+    gameInfo.npcCount--;
 }
 #pragma endregion
 
