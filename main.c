@@ -330,12 +330,12 @@ void Initialization()
     ConsoleCursor.dwSize = 1;
 
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
-
-    // UTF-8 코드페이지 설정
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 
-    srand((unsigned int)(time(NULL) * GetCurrentProcessId() + GetTickCount()));
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    srand((unsigned int)(counter.QuadPart ^ GetTickCount() ^ (uintptr_t)&counter));
 }
 #pragma endregion
 
@@ -687,7 +687,8 @@ void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 
     NPCType npcType = WhatIsThisNPC();
     int npcLane = rand() % 6;
-    int npcColor = (rand() % 6) + 1;
+    int npcRandom = (rand() % 15) + 1;
+    int npcColor = npcType == Heart ? COLOR_RED : (npcRandom == COLOR_RED || npcRandom == COLOR_GRAY ? COLOR_LIGHT_GREEN : npcRandom); // 빨간색은 플레이어, 하트용 & gray는 너무 악질임. 하나도 안 보임.
     int npcX = lanes[npcLane];
     int npcY = 0;
 
@@ -958,7 +959,6 @@ NPCType WhatIsThisNPC()
 /** CONTROLLERS **/
 /********************/
 
-// { direction } 0: Left, 1: Right
 void movePlayer(int direction)
 {
     if (direction == 0 && gameInfo.playerLane > 0)
