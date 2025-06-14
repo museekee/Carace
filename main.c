@@ -10,97 +10,6 @@
 
 #define PLAYER_Y 25
 
-// 점수에 따라 레인 줄여버릴까 확그냥
-// 제한 속도 준수 점수 추가
-// 체력 아이템도 떨어지기
-// 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
-// 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
-#pragma region 열거형 선언
-typedef enum
-{
-    Heart,
-    Car
-} NPCType;
-#pragma endregion
-
-#pragma region 구조체 선언
-typedef struct _NPC
-{
-    NPCType type; // NPC의 종류 (Heart, Car)
-    int color;    // 당연히 고정
-    int x;        // 당연히 고정
-    int y;        // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ
-} NPC;
-
-struct GameInfo
-{
-    int meter;
-    int speed;    // 최소 10
-    double score; // 점수
-    int heart;
-    int playerLane;
-    NPC npcs[50];
-    int npcCount;
-} gameInfo = {0, 10, 0.0, 5, 2, {0}, 0};
-
-const int lanes[] = {8, 18, 28, 38, 48, 58};
-const int laneOffset = 8;
-
-// 더블버퍼링을 위한 구조체
-typedef struct
-{
-    HANDLE hConsole;
-    CHAR_INFO *buffer;
-    COORD bufferSize;
-    COORD bufferCoord;
-    SMALL_RECT writeRegion;
-} DoubleBuffer;
-
-DoubleBuffer db;
-
-typedef struct RenderTimerParam
-{
-    int treeOffset;
-} RenderTimerParam;
-#pragma endregion
-
-#pragma region 함수 선언
-void Initialization();
-void initDoubleBuffer();
-void cleanupDoubleBuffer();
-void clearBuffer(wchar_t fillChar, WORD color);
-void writeToBuffer(int x, int y, wchar_t ch, WORD color);
-void writeCharToBuffer(int x, int y, char ch, WORD color);
-void writeStringToBuffer(int x, int y, const char *str, WORD color);
-void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color);
-void flipBuffer();
-
-void PortalPage();
-void InGamePage();
-
-void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
-void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
-void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);
-void MoveNPC();
-void RenderNPC();
-
-void HowToPlayComponent();
-void CarComponent(int x, int y, int color);
-void HeartComponent(int x, int y, int color);
-void drawTrees(int x, int y);
-void drawLanes(int x, int y, bool isYellow);
-
-void printTitle(int x, int y);
-void printHowToPlay(int x, int y);
-void printInfo(int x, int y);
-void calculateScore();
-void removeNPCByIndex(int index);
-NPCType WhatIsThisNPC();
-
-void movePlayer(int diection);
-void addSpeed(int value);
-#pragma endregion
-
 // https://dimigo.goorm.io/qna/22465 이런 색상은 어때요?
 #pragma region 색상
 #define COLOR_BLACK 0
@@ -121,6 +30,280 @@ void addSpeed(int value);
 #define COLOR_BRIGHT_WHITE 15
 #pragma endregion
 
+// 점수에 따라 레인 줄여버릴까 확그냥
+// 제한 속도 준수 점수 추가
+// 체력 아이템도 떨어지기
+// 유저 선택적으로 가속하게 하자. 점수는 속도에 따라 하는거로 하고 <= (x*sqrt(x))/10 ㄱ.
+// 생성된 차량을 랜덤적으로 배열에 추가 => 배열에 있는 걸 루프 돌리면서 y 내림.(speed와 함께) => 만약 y가 HEIGHT인가 그 정도라면 pop시키기.
+#pragma region 열거형 선언
+typedef enum
+{
+    Heart,
+    Car
+} NPCType;
+#pragma endregion
+
+#pragma region 차선 위치
+const int lanes[] = {8, 18, 28, 38, 48, 58};
+const int laneOffset = 8;
+#pragma endregion
+
+#pragma region 글자 아스키 아트
+const char Grade_labels[][8][12] = {
+    {
+        "  /$$$$$$  ",
+        " /$$__  $$ ",
+        "| $$  \\__/ ",
+        "|  $$$$$$  ",
+        " \\____  $$ ",
+        " /$$  \\ $$ ",
+        "|  $$$$$$/ ",
+        " \\______/ ",
+    },
+    {
+        "  /$$$$$$  ",
+        " /$$__  $$ ",
+        "| $$  \\ $$ ",
+        "| $$$$$$$$ ",
+        "| $$__  $$ ",
+        "| $$  | $$ ",
+        "| $$  | $$ ",
+        "|__/  |__/ ",
+    },
+    {
+        " /$$$$$$$  ",
+        "| $$__  $$ ",
+        "| $$  \\ $$ ",
+        "| $$$$$$$  ",
+        "| $$__  $$ ",
+        "| $$  \\ $$ ",
+        "| $$$$$$$/ ",
+        "|_______/  ",
+    },
+    {
+        "  /$$$$$$  ",
+        " /$$__  $$ ",
+        "| $$  \\__/ ",
+        "| $$       ",
+        "| $$       ",
+        "| $$    $$ ",
+        "|  $$$$$$/ ",
+        " \\______/ ",
+    },
+    {
+        " /$$$$$$$  ",
+        "| $$__  $$ ",
+        "| $$  \\ $$ ",
+        "| $$  | $$ ",
+        "| $$  | $$ ",
+        "| $$  | $$ ",
+        "| $$$$$$$/ ",
+        "|_______/  ",
+    },
+    {
+        " /$$$$$$$$",
+        "| $$_____/ ",
+        "| $$       ",
+        "| $$$$$    ",
+        "| $$__/    ",
+        "| $$       ",
+        "| $$       ",
+        "|__/       ",
+    },
+
+};
+
+const int Grade_colors[] = {
+    COLOR_LIGHT_AQUA,
+    COLOR_LIGHT_GREEN,
+    COLOR_GREEN,
+    COLOR_LIGHT_YELLOW,
+    COLOR_YELLOW,
+    COLOR_RED,
+};
+
+const char Number_labels[][8][11] = {
+    {
+        "  /$$$$$$ ",
+        " /$$    $$",
+        "| $$    $$",
+        "| $$    $$",
+        "| $$    $$",
+        "| $$    $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+    {
+        "   /$$    ",
+        "  /$$$$   ",
+        " |_  $$   ",
+        "   | $$   ",
+        "   | $$   ",
+        "   | $$   ",
+        "  /$$$$$$ ",
+        " |______/ ",
+    },
+    {
+        "  /$$$$$$ ",
+        " /$$__  $$",
+        "|__/  \\ $$",
+        "  /$$$$$$/",
+        " /$$____/ ",
+        "| $$      ",
+        "| $$$$$$$$",
+        "|________/",
+    },
+    {
+        "  /$$$$$$ ",
+        " /$$__  $$",
+        "|__/  \\ $$",
+        "   /$$$$$/",
+        "  |___  $$",
+        " /$$  \\ $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+    {
+        " /$$   /$$",
+        "| $$  | $$",
+        "| $$  | $$",
+        "| $$$$$$$$",
+        "|_____  $$",
+        "      | $$",
+        "      | $$",
+        "      |__/",
+    },
+    {
+        " /$$$$$$$ ",
+        "| $$____/ ",
+        "| $$      ",
+        "| $$$$$$$ ",
+        "|_____  $$",
+        " /$$  \\ $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+    {
+        "  /$$$$$$ ",
+        " /$$__  $$",
+        "| $$  \\__/",
+        "| $$$$$$$ ",
+        "| $$__  $$",
+        "| $$  \\ $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+    {
+        " /$$$$$$$$",
+        "|_____ $$/",
+        "      /$$/",
+        "     /$$/ ",
+        "    /$$/  ",
+        "   /$$/   ",
+        "  /$$/    ",
+        " |__/     ",
+    },
+    {
+        "  /$$$$$$ ",
+        " /$$__  $$",
+        "| $$  \\ $$",
+        "|  $$$$$$/",
+        " >$$__  $$",
+        "| $$  \\ $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+    {
+        "  /$$$$$$ ",
+        " /$$__  $$",
+        "| $$  \\ $$",
+        "|  $$$$$$$",
+        " \\____  $$",
+        " /$$  \\ $$",
+        "|  $$$$$$/",
+        " \\______/ ",
+    },
+};
+#pragma endregion
+
+#pragma region 구조체 선언
+typedef struct _NPC
+{
+    NPCType type; // NPC의 종류 (Heart, Car)
+    int color;    // 당연히 고정
+    int x;        // 당연히 고정
+    int y;        // 얘는 고정으로 ㄱ. 그냥 내려가는 거 기록하는 게 있을텐데 그걸로 빼기 잘 해서 구하기 ㄱ <= 25년 6월 14일의 나: 고정 안 함 ㅅㄱ
+} NPC;
+
+struct GameInfo
+{
+    int speed;      // 최소 10
+    double score;   // 점수
+    int heart;      // 체력
+    int playerLane; // 플레이어가 있는 차선
+    NPC npcs[50];   // NPC 배열
+    int npcCount;   // 현재 NPC 개수
+} gameInfo = {10, 0.0, 5, 2, {0}, 0};
+
+// 더블버퍼링을 위한 구조체
+typedef struct
+{
+    HANDLE hConsole;
+    CHAR_INFO *buffer;
+    COORD bufferSize;
+    COORD bufferCoord;
+    SMALL_RECT writeRegion;
+} DoubleBuffer;
+
+DoubleBuffer db;
+
+typedef struct RenderTimerParam
+{
+    int treeOffset;
+} RenderTimerParam;
+#pragma endregion
+
+#pragma region 함수 선언
+void Initialization(); // 초기화
+void initDoubleBuffer();
+void cleanupDoubleBuffer();
+void clearBuffer(wchar_t fillChar, WORD color);
+void writeToBuffer(int x, int y, wchar_t ch, WORD color);
+void writeCharToBuffer(int x, int y, char ch, WORD color);
+void writeStringToBuffer(int x, int y, const char *str, WORD color);
+void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color);
+void flipBuffer();
+
+void PortalPage(); // 포털 페이지
+void InGamePage(); // 게임 페이지
+void ScorePage();  // 점수 페이지
+
+void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);         // 렌더링 타이머 콜백
+void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired); // 점수 계산 타이머 콜백
+void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);      // NPC 생성 타이머 콜백
+void MoveNPC();                                                            // NPC 이동
+void RenderNPC();                                                          // NPC 렌더링
+
+void HowToPlayComponent();                    // 게임 방법 컴포넌트
+void CarComponent(int x, int y, int color);   // 자동차 컴포넌트
+void HeartComponent(int x, int y, int color); // 하트 컴포넌트
+void drawTrees(int x, int y);                 // 나무 그리기
+void drawLanes(int x, int y, bool isYellow);  // 차선 그리기
+
+void gotoxy(int x, int y);                // 커서 위치 이동
+void printTitle(int x, int y);            // 타이틀 출력
+void printHowToPlay(int x, int y);        // 게임 방법 출력
+void printInfo(int x, int y);             // 정보 출력
+void printGrade(int x, int y, int color); // 등급 출력
+void printScore(int x, int y, int color); // 점수 출력
+void calculateScore();                    // 점수 계산
+void removeNPCByIndex(int index);         // NPC 제거
+NPCType WhatIsThisNPC();                  // NPC 종류 결정
+
+void movePlayer(int diection); // 플레이어 이동
+void addSpeed(int value);      // 속도 추가
+#pragma endregion
+
 #pragma region 메인함수와 초기화
 int main()
 {
@@ -128,10 +311,11 @@ int main()
     initDoubleBuffer();
 
     PortalPage();
-    Initialization();
     InGamePage();
+    ScorePage();
 
     cleanupDoubleBuffer();
+
     return 0;
 }
 
@@ -250,15 +434,16 @@ void PortalPage()
     while (1)
     {
         int key = _getch();
-        if (key == 13)
+        if (key == 13) // 엔터키 누르면 InGamePage로 감
         {
-            break;
+            return;
         }
     }
 }
 
 void InGamePage()
 {
+    clearBuffer(' ', COLOR_WHITE);
     HANDLE renderTimer = NULL;
     HANDLE calculateScoreTimer = NULL;
     HANDLE createNPCTimer = NULL;
@@ -276,6 +461,9 @@ void InGamePage()
 
     while (1)
     {
+        if (gameInfo.heart <= 0)
+            break;
+
         DWORD currentTime = GetTickCount();
         int oldSpeed = gameInfo.speed;
 
@@ -284,11 +472,12 @@ void InGamePage()
             int key = _getch();
             switch (key)
             {
-            case 13:
-                DeleteTimerQueueTimer(NULL, renderTimer, NULL);
-                DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
-                DeleteTimerQueueTimer(NULL, createNPCTimer, NULL);
-                return;
+            // 테스트 할 때 쓰던 코드
+            // case 13:
+            //     DeleteTimerQueueTimer(NULL, renderTimer, NULL);
+            //     DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
+            //     DeleteTimerQueueTimer(NULL, createNPCTimer, NULL);
+            //     return;
             case 'A':
             case 'a':
                 movePlayer(0);
@@ -299,7 +488,7 @@ void InGamePage()
                 break;
             case 'W':
             case 'w':
-                if (!wPressed)
+                if (!wPressed) // 꾹 누르기 방지
                 {
                     addSpeed(5);
                     wPressed = true;
@@ -341,6 +530,112 @@ void InGamePage()
         flipBuffer();
 
         Sleep(1);
+    }
+    DeleteTimerQueueTimer(NULL, renderTimer, NULL);
+    DeleteTimerQueueTimer(NULL, calculateScoreTimer, NULL);
+    DeleteTimerQueueTimer(NULL, createNPCTimer, NULL);
+    return;
+}
+
+void ScorePage()
+{
+    // 3000~ S, 2500~ A, 2000~ B, 1500~ C, 1000~ D, 0~ F
+    clearBuffer(' ', COLOR_WHITE);
+    int score = (int)gameInfo.score;
+    int gradeIdx;
+    // 등급 Index 계산
+    if (score >= 3000)
+        gradeIdx = 0; // S
+    else if (score >= 2500)
+        gradeIdx = 1; // A
+    else if (score >= 2000)
+        gradeIdx = 2; // B
+    else if (score >= 1500)
+        gradeIdx = 3; // C
+    else if (score >= 1000)
+        gradeIdx = 4; // D
+    else
+        gradeIdx = 5; // F
+
+    // 등급 기록용 텍스트
+    char gradeText = "SABCDF"[gradeIdx];
+    printGrade(3, 1, COLOR_BRIGHT_WHITE);
+    // 등급 출력
+    for (int i = 0; i < 8; i++)
+    {
+        writeStringToBuffer(23, 10 + i, Grade_labels[gradeIdx][i], Grade_colors[gradeIdx]);
+    }
+
+    // 선긋기
+    for (int i = 0; i < WIDTH; i++)
+    {
+        writeWideStringToBuffer(i, HEIGHT - 9, L"─", COLOR_GRAY);
+        writeWideStringToBuffer(i, HEIGHT - 8, L"─", COLOR_GRAY);
+        writeWideStringToBuffer(i, HEIGHT - 7, L"─", COLOR_GRAY);
+    }
+    for (int i = 0; i <= HEIGHT - 7; i++)
+    {
+        if (i == HEIGHT - 7)
+        {
+            writeWideStringToBuffer(59, i, L"┴", COLOR_GRAY);
+            writeWideStringToBuffer(60, i, L"┴", COLOR_GRAY);
+            writeWideStringToBuffer(61, i, L"┴", COLOR_GRAY);
+        }
+        else if (i == HEIGHT - 8 || i == HEIGHT - 9)
+        {
+            writeWideStringToBuffer(59, i, L"┼", COLOR_GRAY);
+            writeWideStringToBuffer(60, i, L"┼", COLOR_GRAY);
+            writeWideStringToBuffer(61, i, L"┼", COLOR_GRAY);
+        }
+        else
+        {
+            writeWideStringToBuffer(59, i, L"│", COLOR_GRAY);
+            writeWideStringToBuffer(60, i, L"│", COLOR_GRAY);
+            writeWideStringToBuffer(61, i, L"│", COLOR_GRAY);
+        }
+    }
+
+    // Score
+    printScore(68, 1, COLOR_LIGHT_PURPLE);
+    char scoreStr[6];
+    sprintf(scoreStr, "%05d", score);
+    for (int i = 0; i < 5; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            writeStringToBuffer(66 + i * 11, 10 + j, Number_labels[scoreStr[i] - '0'][j], COLOR_PURPLE);
+        }
+    }
+
+    writeWideStringToBuffer(34, HEIGHT - 4, L"[S] 키를 눌러 저장하고 종료 (파일명: 1401_museekee.txt)", COLOR_LIGHT_RED);
+    writeWideStringToBuffer(42, HEIGHT - 2, L"[Enter] 키를 눌러 저장하지 않고 종료", COLOR_BRIGHT_WHITE);
+
+    flipBuffer();
+    while (1)
+    {
+        int key = _getch();
+        switch (key)
+        {
+        case 13:
+            return;
+        case 'S':
+        case 's':
+        {
+            FILE *file = _wfopen(L"1401_museekee.txt", L"w, ccs=UTF-8");
+            if (file)
+            {
+                fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
+                fclose(file);
+                Sleep(250);
+                return;
+            }
+            else
+            {
+                writeWideStringToBuffer(38, HEIGHT - 4, L"저장 실패! [Enter] 키를 눌러 종료해주세요", COLOR_RED); // 생각해보니까 flipBuffer()를 안 해서 어차피 안 뜨네;; 아쉬운거지~
+            }
+            return;
+        }
+        }
     }
 }
 #pragma endregion
@@ -417,7 +712,7 @@ void RenderNPC()
         bool toRemove = false;
 
         // 충돌 체크
-        if (npc->y - 1 == PLAYER_Y && npc->x == lanes[gameInfo.playerLane])
+        if (abs(npc->y - PLAYER_Y) <= 3 && npc->x == lanes[gameInfo.playerLane])
         {
             if (npc->type == Heart)
             {
@@ -559,6 +854,12 @@ void drawLanes(int x, int y, bool isYellow)
 /****************/
 /** FUNCTIONS **/
 /****************/
+void gotoxy(int x, int y)
+{
+    COORD Pos = {x, y};
+    SetConsoleCursorPosition(db.hConsole, Pos);
+}
+
 // https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne
 void printTitle(int x, int y)
 {
@@ -591,6 +892,30 @@ void printInfo(int x, int y)
     writeStringToBuffer(x, y + 3, "   | | | '_ \\|  _/ _ \\ ", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y + 4, "  _| |_| | | | || (_) |", COLOR_LIGHT_BLUE);
     writeStringToBuffer(x, y + 5, " |_____|_| |_|_| \\___/ ", COLOR_LIGHT_BLUE);
+}
+
+void printGrade(int x, int y, int color)
+{
+    writeStringToBuffer(x, y + 0, "  /$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$$  /$$$$$$$$", color);
+    writeStringToBuffer(x, y + 1, " /$$__  $$| $$__  $$ /$$__  $$| $$__  $$| $$_____/", color);
+    writeStringToBuffer(x, y + 2, "| $$  \\__/| $$  \\ $$| $$  \\ $$| $$  \\ $$| $$      ", color);
+    writeStringToBuffer(x, y + 3, "| $$ /$$$$| $$$$$$$/| $$$$$$$$| $$  | $$| $$$$$   ", color);
+    writeStringToBuffer(x, y + 4, "| $$|_  $$| $$__  $$| $$__  $$| $$  | $$| $$__/   ", color);
+    writeStringToBuffer(x, y + 5, "| $$  \\ $$| $$  \\ $$| $$  | $$| $$  | $$| $$      ", color);
+    writeStringToBuffer(x, y + 6, "|  $$$$$$/| $$  | $$| $$  | $$| $$$$$$$/| $$$$$$$$", color);
+    writeStringToBuffer(x, y + 7, " \\______/ |__/  |__/|__/  |__/|_______/ |________/", color);
+}
+
+void printScore(int x, int y, int color)
+{
+    writeStringToBuffer(x, y + 0, "  /$$$$$$   /$$$$$$   /$$$$$$  /$$$$$$$  /$$$$$$$$", color);
+    writeStringToBuffer(x, y + 1, " /$$__  $$ /$$__  $$ /$$__  $$| $$__  $$| $$_____/", color);
+    writeStringToBuffer(x, y + 2, "| $$  \\__/| $$  \\__/| $$  \\ $$| $$  \\ $$| $$      ", color);
+    writeStringToBuffer(x, y + 3, "|  $$$$$$ | $$      | $$  | $$| $$$$$$$/| $$$$$   ", color);
+    writeStringToBuffer(x, y + 4, " \\____  $$| $$      | $$  | $$| $$__  $$| $$__/   ", color);
+    writeStringToBuffer(x, y + 5, " /$$  \\ $$| $$    $$| $$  | $$| $$  \\ $$| $$      ", color);
+    writeStringToBuffer(x, y + 6, "|  $$$$$$/|  $$$$$$/|  $$$$$$/| $$  | $$| $$$$$$$$", color);
+    writeStringToBuffer(x, y + 7, " \\______/  \\______/  \\______/ |__/  |__/|________/", color);
 }
 
 void calculateScore()
