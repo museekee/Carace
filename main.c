@@ -746,7 +746,7 @@ void RenderNPC()
             toRemove = true;
         }
         // 화면 밖으로 나감(아래 || 오른쪽)
-        else if (npc->y >= HEIGHT || npc->x > lanes[maxLane])
+        else if (npc->y >= HEIGHT + 4 || npc->x > lanes[maxLane])
         {
             toRemove = true;
         }
