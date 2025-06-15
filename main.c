@@ -239,7 +239,7 @@ struct GameInfo
     int playerLane; // 플레이어가 있는 차선
     NPC npcs[50];   // NPC 배열
     int npcCount;   // 현재 NPC 개수
-} gameInfo = {10, 2990.0, 5, 2, {0}, 0};
+} gameInfo = {10, 0.0, 5, 2, {0}, 0};
 
 // 더블버퍼링을 위한 구조체
 typedef struct
