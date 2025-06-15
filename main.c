@@ -285,7 +285,6 @@ void CarComponent(int x, int y, int color);            // 자동차 컴포넌트
 void HeartComponent(int x, int y, int color);          // 하트 컴포넌트
 void drawTrees(int x, int y);                          // 나무 그리기
 void drawLines(int x, int y, int color, int lineType); // 차선 그리기
-void removeLine(int x);                                // 차선 지우기
 void drawForbiddenLines();                             // 이제 막힌 차로 색칠하기
 
 void gotoxy(int x, int y);                // 커서 위치 이동
@@ -522,11 +521,11 @@ void InGamePage()
             sPressed = false;
         }
 
-        if (gameInfo.score > 5000 && maxLane != 2)
+        if (gameInfo.score > 5000)
             setMaxLane(2);
-        else if (gameInfo.score > 4000 && maxLane != 3)
+        else if (gameInfo.score > 4000)
             setMaxLane(3);
-        else if (gameInfo.score > 3000 && maxLane != 4)
+        else if (gameInfo.score > 3000)
             setMaxLane(4);
 
         // 버퍼 변경
@@ -649,9 +648,8 @@ void ScorePage()
 /************************/
 void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
-    RenderTimerParam *data = (RenderTimerParam *)lpParam;
-
     clearBuffer(L' ', COLOR_WHITE);
+    RenderTimerParam *data = (RenderTimerParam *)lpParam;
 
     // 나무 렌더링
     drawTrees(0, data->treeOffset);
@@ -680,8 +678,8 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
         drawLines(lanes[3] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
     if (maxLane > 4)
         drawLines(lanes[4] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
-    if (maxLane > 5)
-        drawLines(lanes[5] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
+    // if (maxLane > 4)
+    //     drawLines(lanes[5] + laneOffset, data->treeOffset, COLOR_WHITE, 0);
 
     // 플레이어 렌더링
     CarComponent(lanes[gameInfo.playerLane], PLAYER_Y, COLOR_RED);
@@ -863,12 +861,11 @@ void drawTrees(int x, int y)
 // 0: 파선, 1: 실선
 void drawLines(int x, int y, int color, int lineType)
 {
+    int actualY = lineType == 1 ? 0 : y;
+
     for (int i = 0; i < HEIGHT + 5; i += 5)
     {
-        int laneY = (i + y) % HEIGHT;
-
-        for (int w = 0; w < laneOffset; w++)
-            writeToBuffer(x + w, laneY, L' ', COLOR_WHITE);
+        int laneY = (i + actualY) % HEIGHT;
         writeWideStringToBuffer(x, laneY, lineType ? L"││" : L"┌┐", color);
         writeWideStringToBuffer(x, (laneY + 1) % HEIGHT, L"││", color);
         writeWideStringToBuffer(x, (laneY + 2) % HEIGHT, L"││", color);
@@ -877,14 +874,6 @@ void drawLines(int x, int y, int color, int lineType)
     }
 }
 
-void removeLine(int x)
-{
-    for (int i = 0; i < HEIGHT; i++)
-    {
-        for (int w = 0; w < laneOffset; w++)
-            writeToBuffer(x + w, i, L' ', COLOR_WHITE);
-    }
-}
 void drawForbiddenLines()
 {
     drawLines(lanes[maxLane] + laneOffset, 0, COLOR_YELLOW, 1); // 중앙선
