@@ -4,7 +4,7 @@
 
 > Version 1.2, February 2021
 
-> Copyright (C) 2025~ museekee
+> Copyright (C) 2025~ Kwon Yuho
  
  Everyone is permitted to copy and distribute verbatim or modified copies of this license document.
 
