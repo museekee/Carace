@@ -256,8 +256,6 @@ DoubleBuffer db;
 typedef struct RenderTimerParam
 {
     int treeOffset;
-    char recentGrade;
-    float recentScore;
 } RenderTimerParam;
 #pragma endregion
 
@@ -319,7 +317,38 @@ int main()
 
     return 0;
 }
+float recentScore;
+char recentGrade;
+bool isWindowsTerminal;
+BOOL IsWindowsTerminal() {
+    // 1. 환경변수 확인 (가장 확실)
+    if (getenv("WT_SESSION") != NULL) {
+        return TRUE;
+    }
 
+    // 2. 콘솔 모드 확인
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode;
+    if (GetConsoleMode(hConsole, &mode)) {
+        if (mode & 0x0004) {
+            // 3. 콘솔 창 제목 추가 확인
+            HWND consoleWindow = GetConsoleWindow();
+            if (consoleWindow != NULL) {
+                char title[256];
+                if (GetWindowTextA(consoleWindow, title, sizeof(title)) > 0) {
+                    // 구형 cmd는 보통 "C:\Windows\System32\cmd.exe" 형식
+                    if (strstr(title, "cmd.exe") != NULL &&
+                        strstr(title, "Windows Terminal") == NULL) {
+                        return FALSE;
+                    }
+                }
+                return TRUE;
+            }
+        }
+    }
+
+    return FALSE;
+}
 void Initialization()
 {
     HANDLE hConsole;
@@ -333,6 +362,13 @@ void Initialization()
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
+
+    FILE *file = _wfopen(L"./1401_권유호.txt", L"r, ccs=UTF-8");
+    // fscanf(fp1, "점수: %f점 ", &recentScore);
+    fwscanf(file, L"점수: %f점\n등급: %c\n", &recentScore, &recentGrade);
+    // fscanf(fp1, "등급: %c", &recentGrade);
+    fclose(file);
+    isWindowsTerminal = IsWindowsTerminal();
 }
 #pragma endregion
 
@@ -405,7 +441,10 @@ void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color)
         {
             bool isFullWidth = str[i] >= 0xAC00 && str[i] <= 0xD7AF; // 내가쓰는 전각은 한글뿐이니까 한글 범위에 한정.
             writeToBuffer(x + nujeokX, y, str[i], color);
-            nujeokX += isFullWidth ? 2 : 1;
+            if (isWindowsTerminal)
+                nujeokX++;
+            else
+                nujeokX += isFullWidth ? 2 : 1;
         }
     }
 }
@@ -452,13 +491,21 @@ void InGamePage()
 
     bool wPressed = false;
     bool sPressed = false;
+/*
+    FILE *file = _wfopen(L"./1401_권유호.txt", L"w, ccs=UTF-8");
+    if (file)
+    {
+        fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
+        fclose(file);
+        Sleep(250);
+        return;
+    }
+    else
+    {
+        writeWideStringToBuffer(38, HEIGHT - 4, L"저장 실패! [Enter] 키를 눌러 종료해주세요", COLOR_RED); // 생각해보니까 flipBuffer()를 안 해서 어차피 안 뜨네;; 아쉬운거지~
+    }*/
 
-    FILE *fp1 = fopen("./1401_권유호.txt", "r");
-    float recentScore;
-    char recentGrade;
-    fscanf(fp1, "점수: .3f점 등:%c", &recentScore, &recentGrade);
-
-    RenderTimerParam renderTimerParam = {0, recentGrade, recentScore};
+    RenderTimerParam renderTimerParam = {0};
     int renderTimerDueTime = 111 - gameInfo.speed;
     // JS의 setInterval마냥 타이머 씀.
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
@@ -637,7 +684,7 @@ void ScorePage()
         case 'S':
         case 's':
         {
-            FILE *file = _wfopen(L"1401_권유호.txt", L"w, ccs=UTF-8");
+            FILE *file = _wfopen(L"./1401_권유호.txt", L"w, ccs=UTF-8");
             if (file)
             {
                 fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
@@ -670,7 +717,7 @@ VOID CALLBACK RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     drawTrees(68, data->treeOffset);
 
     // 오른쪽 렌더링
-    HowToPlayComponent(data->recentGrade, data->recentScore);
+    HowToPlayComponent();
 
     // lane은 총 6개 (값: 5)임.
     // 렌더링할 차선은 0, 1, 2, 3, 4, 5번 차선이 있음.
@@ -784,7 +831,7 @@ void RenderNPC()
 /********************/
 /** COMPONENTS **/
 /********************/
-void HowToPlayComponent(char grade, float score)
+void HowToPlayComponent()
 {
     int xStart = 75;
     int xEnd = 119;
@@ -822,15 +869,15 @@ void HowToPlayComponent(char grade, float score)
     printInfo(xStart + 11, 16);
 
     wchar_t recentWstr[50];
-    swprintf(recentWstr, L"== 최근 점수: %f점 | 최근 등급: %c", score, grade);
+    swprintf(recentWstr, 50, L"== 최근 점수: %f점 | 최근 등급: %c", recentScore, recentGrade);
     writeWideStringToBuffer(xStart + 3, 23, recentWstr, COLOR_RED);
 
     wchar_t scoreWstr[50];
-    swprintf(scoreWstr, L"• 점수: %d", (int)gameInfo.score);
+    swprintf(scoreWstr, 50, L"• 점수: %d", (int)gameInfo.score);
     writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t speedWstr[50];
-    swprintf(speedWstr, L"• 속도: %dkm/h", gameInfo.speed);
+    swprintf(speedWstr, 50, L"• 속도: %dkm/h", gameInfo.speed);
     writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
