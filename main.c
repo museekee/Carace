@@ -395,11 +395,15 @@ void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color)
         return;
 
     int len = wcslen(str);
+
+    int nujeokX = 0;
     for (int i = 0; i < len && (x + i) < WIDTH; i++)
     {
         if (x + i >= 0 && y >= 0 && y < HEIGHT)
         {
-            writeToBuffer(x + i, y, str[i], color);
+            bool isFullWidth = str[i] >= 0xAC00 && str[i] <= 0xD7AF; // 내가쓰는 전각은 한글뿐이니까 한글 범위에 한정.
+            writeToBuffer(x + nujeokX, y, str[i], color);
+            nujeokX += isFullWidth ? 2 : 1;
         }
     }
 }
