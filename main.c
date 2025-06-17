@@ -256,6 +256,8 @@ DoubleBuffer db;
 typedef struct RenderTimerParam
 {
     int treeOffset;
+    char recentGrade;
+    float recentScore;
 } RenderTimerParam;
 #pragma endregion
 
@@ -451,14 +453,21 @@ void InGamePage()
     bool wPressed = false;
     bool sPressed = false;
 
-    RenderTimerParam renderTimerParam = {0};
+    FILE *fp1 = fopen("./1401_권유호.txt", "r");
+    float recentScore;
+    char recentGrade;
+    fscanf(fp1, "점수: .3f점 등:%c", &recentScore, &recentGrade);
+
+    RenderTimerParam renderTimerParam = {0, recentGrade, recentScore};
     int renderTimerDueTime = 111 - gameInfo.speed;
+    // JS의 setInterval마냥 타이머 씀.
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
 
     CreateTimerQueueTimer(&calculateScoreTimer, NULL, CalculateScoreTimerCallback, NULL, 0, 500, 0);
 
     CreateTimerQueueTimer(&createNPCTimer, NULL, CreateNPCTimerCallback, NULL, 0, 500, 0);
 
+    // 키입력, 차로 줄이기
     while (1)
     {
         if (gameInfo.heart <= 0)
@@ -661,7 +670,7 @@ VOID CALLBACK RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     drawTrees(68, data->treeOffset);
 
     // 오른쪽 렌더링
-    HowToPlayComponent();
+    HowToPlayComponent(data->recentGrade, data->recentScore);
 
     // lane은 총 6개 (값: 5)임.
     // 렌더링할 차선은 0, 1, 2, 3, 4, 5번 차선이 있음.
@@ -775,7 +784,7 @@ void RenderNPC()
 /********************/
 /** COMPONENTS **/
 /********************/
-void HowToPlayComponent()
+void HowToPlayComponent(char grade, float score)
 {
     int xStart = 75;
     int xEnd = 119;
@@ -805,23 +814,24 @@ void HowToPlayComponent()
 
     writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 11, L"• 60Hz에 따라 눈이 안 아픈 속도: 100km/h", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 12, L"• 점수는 속도에 따라 지수함수 모양으로", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 13, L"  증가하고, 개발자가 NPC생성 주기를", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 14, L"  500ms로 하드코딩했기 때문에 90km/h로", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 14, L"  500ms로 하드코딩했기 때문에 80km/h로", COLOR_LIGHT_GREEN);
     writeWideStringToBuffer(xStart + 3, 15, L"  설정하면 쉬운 게임을 즐길 수 있습니다.", COLOR_LIGHT_GREEN);
 
-    printInfo(xStart + 11, 17);
+    printInfo(xStart + 11, 16);
 
-    // wchar_t scoreWstr[50];
-    // swprintf(scoreWstr, 50, L"• 점수: %d",
-    //          (int)gameInfo.score);
-    // writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
+    wchar_t recentWstr[50];
+    swprintf(recentWstr, L"== 최근 점수: %f점 | 최근 등급: %c", score, grade);
+    writeWideStringToBuffer(xStart + 3, 23, recentWstr, COLOR_RED);
 
-    // wchar_t speedWstr[50];
-    // swprintf(speedWstr, 50, L"• 속도: %dkm/h",
-    //          gameInfo.speed);
-    // writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
+    wchar_t scoreWstr[50];
+    swprintf(scoreWstr, L"• 점수: %d", (int)gameInfo.score);
+    writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
+
+    wchar_t speedWstr[50];
+    swprintf(speedWstr, L"• 속도: %dkm/h", gameInfo.speed);
+    writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
     writeWideStringToBuffer(xStart + 3, 26, L"• 하트: ", COLOR_LIGHT_YELLOW);
