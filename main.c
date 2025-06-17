@@ -30,11 +30,7 @@
 #define COLOR_BRIGHT_WHITE 15
 #pragma endregion
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1900)  // VS2015 이상
-    #define SAFE_SWPRINTF(buf, size, format, ...) swprintf(buf, size, format, __VA_ARGS__)
-#else  // VS2013 이하
-    #define SAFE_SWPRINTF(buf, size, format, ...) swprintf(buf, format, __VA_ARGS__)
-#endif
+#define SAFE_SWPRINTF(buf, size, format, ...) swprintf(buf, format, __VA_ARGS__)
 
 #pragma region 열거형 선언
 typedef enum
@@ -326,7 +322,7 @@ int main()
 float recentScore;
 char recentGrade;
 bool isWindowsTerminal;
-// 신형 WindowsTerminal 구
+// WindowsTerminal 구분하는거라고 함.
 BOOL IsWindowsTerminal() {
     // 1. 환경변수 확인 (가장 확실)
     if (getenv("WT_SESSION") != NULL) {
