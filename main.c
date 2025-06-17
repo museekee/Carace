@@ -30,6 +30,12 @@
 #define COLOR_BRIGHT_WHITE 15
 #pragma endregion
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)  // VS2015 이상
+    #define SAFE_SWPRINTF(buf, size, format, ...) swprintf(buf, size, format, __VA_ARGS__)
+#else  // VS2013 이하
+    #define SAFE_SWPRINTF(buf, size, format, ...) swprintf(buf, format, __VA_ARGS__)
+#endif
+
 #pragma region 열거형 선언
 typedef enum
 {
@@ -256,8 +262,6 @@ DoubleBuffer db;
 typedef struct RenderTimerParam
 {
     int treeOffset;
-    char recentGrade;
-    float recentScore;
 } RenderTimerParam;
 #pragma endregion
 
@@ -319,7 +323,39 @@ int main()
 
     return 0;
 }
+float recentScore;
+char recentGrade;
+bool isWindowsTerminal;
+// 신형 WindowsTerminal 구
+BOOL IsWindowsTerminal() {
+    // 1. 환경변수 확인 (가장 확실)
+    if (getenv("WT_SESSION") != NULL) {
+        return TRUE;
+    }
 
+    // 2. 콘솔 모드 확인
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode;
+    if (GetConsoleMode(hConsole, &mode)) {
+        if (mode & 0x0004) {
+            // 3. 콘솔 창 제목 추가 확인
+            HWND consoleWindow = GetConsoleWindow();
+            if (consoleWindow != NULL) {
+                char title[256];
+                if (GetWindowTextA(consoleWindow, title, sizeof(title)) > 0) {
+                    // 구형 cmd는 보통 "C:\Windows\System32\cmd.exe" 형식
+                    if (strstr(title, "cmd.exe") != NULL &&
+                        strstr(title, "Windows Terminal") == NULL) {
+                        return FALSE;
+                    }
+                }
+                return TRUE;
+            }
+        }
+    }
+
+    return FALSE;
+}
 void Initialization()
 {
     HANDLE hConsole;
@@ -333,6 +369,13 @@ void Initialization()
     SetConsoleCursorInfo(hConsole, &ConsoleCursor);
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
+
+    FILE *file = _wfopen(L"./1401_권유호.txt", L"r, ccs=UTF-8");
+    // fscanf(fp1, "점수: %f점 ", &recentScore);
+    fwscanf(file, L"점수: %f점\n등급: %c\n", &recentScore, &recentGrade);
+    // fscanf(fp1, "등급: %c", &recentGrade);
+    fclose(file);
+    isWindowsTerminal = IsWindowsTerminal();
 }
 #pragma endregion
 
@@ -405,7 +448,10 @@ void writeWideStringToBuffer(int x, int y, const wchar_t *str, WORD color)
         {
             bool isFullWidth = str[i] >= 0xAC00 && str[i] <= 0xD7AF; // 내가쓰는 전각은 한글뿐이니까 한글 범위에 한정.
             writeToBuffer(x + nujeokX, y, str[i], color);
-            nujeokX += isFullWidth ? 2 : 1;
+            if (isWindowsTerminal)
+                nujeokX++;
+            else
+                nujeokX += isFullWidth ? 2 : 1;
         }
     }
 }
@@ -429,7 +475,16 @@ void PortalPage()
 {
     clearBuffer(' ', COLOR_WHITE);
     printTitle(1, 5);
-    writeStringToBuffer(47, 20, "[PRESS 'ENTER' TO START]", COLOR_WHITE);
+    writeWideStringToBuffer(32, 16, L"[TIP]: cmd가 아닌 신형 Windows Terminal로 실행하면", COLOR_WHITE);
+    writeWideStringToBuffer(39, 17, L"더 빠르고 쾌적한 환경에서 플레이할 수 있습니다.", COLOR_WHITE);
+    wchar_t detectedProgram[50];
+    SAFE_SWPRINTF(detectedProgram, 50, L"현재 감지된 프로그램은 %s 입니다.", isWindowsTerminal ? L"쾌적한 Windows Terminal" : L"cmd");
+    writeWideStringToBuffer(34, 20, detectedProgram, isWindowsTerminal ? COLOR_LIGHT_GREEN : COLOR_RED);
+    if (!isWindowsTerminal) {
+        writeWideStringToBuffer(34, 21, L"플레이는 가능하나, 자주 끊기는 현상이 발견되었습니다.", COLOR_RED);
+        writeWideStringToBuffer(34, 22, L"이 점, 참고해주시기 바랍니다.", COLOR_RED);
+    }
+    writeStringToBuffer(47, 23, "[PRESS 'ENTER' TO START]", COLOR_WHITE);
     flipBuffer();
 
     while (1)
@@ -452,13 +507,21 @@ void InGamePage()
 
     bool wPressed = false;
     bool sPressed = false;
+/*
+    FILE *file = _wfopen(L"./1401_권유호.txt", L"w, ccs=UTF-8");
+    if (file)
+    {
+        fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
+        fclose(file);
+        Sleep(250);
+        return;
+    }
+    else
+    {
+        writeWideStringToBuffer(38, HEIGHT - 4, L"저장 실패! [Enter] 키를 눌러 종료해주세요", COLOR_RED); // 생각해보니까 flipBuffer()를 안 해서 어차피 안 뜨네;; 아쉬운거지~
+    }*/
 
-    FILE *fp1 = fopen("./1401_권유호.txt", "r");
-    float recentScore;
-    char recentGrade;
-    fscanf(fp1, "점수: .3f점 등:%c", &recentScore, &recentGrade);
-
-    RenderTimerParam renderTimerParam = {0, recentGrade, recentScore};
+    RenderTimerParam renderTimerParam = {0};
     int renderTimerDueTime = 111 - gameInfo.speed;
     // JS의 setInterval마냥 타이머 씀.
     CreateTimerQueueTimer(&renderTimer, NULL, RenderTimerCallback, &renderTimerParam, 0, renderTimerDueTime, 0);
@@ -637,7 +700,7 @@ void ScorePage()
         case 'S':
         case 's':
         {
-            FILE *file = _wfopen(L"1401_권유호.txt", L"w, ccs=UTF-8");
+            FILE *file = _wfopen(L"./1401_권유호.txt", L"w, ccs=UTF-8");
             if (file)
             {
                 fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
@@ -670,7 +733,7 @@ VOID CALLBACK RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     drawTrees(68, data->treeOffset);
 
     // 오른쪽 렌더링
-    HowToPlayComponent(data->recentGrade, data->recentScore);
+    HowToPlayComponent();
 
     // lane은 총 6개 (값: 5)임.
     // 렌더링할 차선은 0, 1, 2, 3, 4, 5번 차선이 있음.
@@ -784,12 +847,43 @@ void RenderNPC()
 /********************/
 /** COMPONENTS **/
 /********************/
-void HowToPlayComponent(char grade, float score)
+void HowToPlayComponent()
 {
     int xStart = 75;
     int xEnd = 119;
 
-    // 테두리 그리기
+    printHowToPlay(xStart + 4, 2);
+
+    writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 11, L"• 점수는 속도에 따라 지수함수 모양으로", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 12, L"  증가하고, 개발자가 NPC생성 주기를", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 13, L"  500ms로 하드코딩했기 때문에 80km/h로", COLOR_LIGHT_GREEN);
+    writeWideStringToBuffer(xStart + 3, 14, L"  설정하면 쉬운 게임을 즐길 수 있습니다.", COLOR_LIGHT_GREEN);
+
+    printInfo(xStart + 11, 16);
+
+    wchar_t recentWstr[50];
+    SAFE_SWPRINTF(recentWstr, 50, L"= 최근 점수: %.0f점 | 최근 등급: %c =", recentScore, recentGrade);
+    writeWideStringToBuffer(xStart + 3, 23, recentWstr, COLOR_RED);
+
+    wchar_t scoreWstr[50];
+    SAFE_SWPRINTF(scoreWstr, 50, L"• 점수: %d", (int)gameInfo.score);
+    writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
+
+    wchar_t speedWstr[50];
+    SAFE_SWPRINTF(speedWstr, 50, L"• 속도: %dkm/h", gameInfo.speed);
+    writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
+
+    wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
+    writeWideStringToBuffer(xStart + 3, 26, L"• 하트: ", COLOR_LIGHT_YELLOW);
+    for (int i = 0; i < gameInfo.heart * 2; i += 2)
+    {
+        hearts[i] = L'❤';
+    }
+    writeWideStringToBuffer(xStart + 9, 26, hearts, COLOR_RED);
+
+        // 테두리 그리기
     writeToBuffer(xStart, 0, L'┌', COLOR_GRAY);
     for (int i = xStart + 1; i < xEnd; i++)
     {
@@ -809,37 +903,6 @@ void HowToPlayComponent(char grade, float score)
         writeToBuffer(i, HEIGHT - 1, L'─', COLOR_GRAY);
     }
     writeToBuffer(xEnd, HEIGHT - 1, L'┘', COLOR_GRAY);
-
-    printHowToPlay(xStart + 4, 2);
-
-    writeWideStringToBuffer(xStart + 3, 9, L"• A, D키를 이용해 좌/우로 움직인다.", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 10, L"• W, S키를 이용해 가/감속 한다.", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 12, L"• 점수는 속도에 따라 지수함수 모양으로", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 13, L"  증가하고, 개발자가 NPC생성 주기를", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 14, L"  500ms로 하드코딩했기 때문에 80km/h로", COLOR_LIGHT_GREEN);
-    writeWideStringToBuffer(xStart + 3, 15, L"  설정하면 쉬운 게임을 즐길 수 있습니다.", COLOR_LIGHT_GREEN);
-
-    printInfo(xStart + 11, 16);
-
-    wchar_t recentWstr[50];
-    swprintf(recentWstr, L"== 최근 점수: %f점 | 최근 등급: %c", score, grade);
-    writeWideStringToBuffer(xStart + 3, 23, recentWstr, COLOR_RED);
-
-    wchar_t scoreWstr[50];
-    swprintf(scoreWstr, L"• 점수: %d", (int)gameInfo.score);
-    writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
-
-    wchar_t speedWstr[50];
-    swprintf(speedWstr, L"• 속도: %dkm/h", gameInfo.speed);
-    writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
-
-    wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
-    writeWideStringToBuffer(xStart + 3, 26, L"• 하트: ", COLOR_LIGHT_YELLOW);
-    for (int i = 0; i < gameInfo.heart * 2; i += 2)
-    {
-        hearts[i] = L'❤';
-    }
-    writeWideStringToBuffer(xStart + 9, 26, hearts, COLOR_RED);
 }
 
 // 자동차 컴포넌트
