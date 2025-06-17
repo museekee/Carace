@@ -274,11 +274,11 @@ void PortalPage(); // 포털 페이지
 void InGamePage(); // 게임 페이지
 void ScorePage();  // 점수 페이지
 
-void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);         // 렌더링 타이머 콜백
-void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired); // 점수 계산 타이머 콜백
-void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);      // NPC 생성 타이머 콜백
-void MoveNPC();                                                            // NPC 이동
-void RenderNPC();                                                          // NPC 렌더링
+VOID CALLBACK RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);         // 렌더링 타이머 콜백
+VOID CALLBACK CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired); // 점수 계산 타이머 콜백
+VOID CALLBACK CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired);      // NPC 생성 타이머 콜백
+void MoveNPC();                                                                     // NPC 이동
+void RenderNPC();                                                                   // NPC 렌더링
 
 void HowToPlayComponent();                             // 게임 방법 컴포넌트
 void CarComponent(int x, int y, int color);            // 자동차 컴포넌트
@@ -439,6 +439,7 @@ void PortalPage()
 void InGamePage()
 {
     clearBuffer(' ', COLOR_WHITE);
+
     HANDLE renderTimer = NULL;
     HANDLE calculateScoreTimer = NULL;
     HANDLE createNPCTimer = NULL;
@@ -646,7 +647,7 @@ void ScorePage()
 /*************************/
 /** TIMER CALLBACKS **/
 /************************/
-void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+VOID CALLBACK RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
     clearBuffer(L' ', COLOR_WHITE);
     RenderTimerParam *data = (RenderTimerParam *)lpParam;
@@ -691,14 +692,14 @@ void RenderTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
     RenderNPC();
 }
 
-void CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+VOID CALLBACK CalculateScoreTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
     calculateScore();
 }
 
-void CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+VOID CALLBACK CreateNPCTimerCallback(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
-    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount * (long long int)&CreateNPCTimerCallback);
+    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount - 1);
     if (gameInfo.npcCount >= 50)
         return;
 
@@ -808,15 +809,15 @@ void HowToPlayComponent()
 
     printInfo(xStart + 11, 17);
 
-    wchar_t scoreWstr[50];
-    swprintf(scoreWstr, 50, L"• 점수: %d",
-             (int)gameInfo.score);
-    writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
+    // wchar_t scoreWstr[50];
+    // swprintf(scoreWstr, 50, L"• 점수: %d",
+    //          (int)gameInfo.score);
+    // writeWideStringToBuffer(xStart + 3, 24, scoreWstr, COLOR_LIGHT_YELLOW);
 
-    wchar_t speedWstr[50];
-    swprintf(speedWstr, 50, L"• 속도: %dkm/h",
-             gameInfo.speed);
-    writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
+    // wchar_t speedWstr[50];
+    // swprintf(speedWstr, 50, L"• 속도: %dkm/h",
+    //          gameInfo.speed);
+    // writeWideStringToBuffer(xStart + 3, 25, speedWstr, COLOR_LIGHT_YELLOW);
 
     wchar_t hearts[] = L"♡ ♡ ♡ ♡ ♡  ";
     writeWideStringToBuffer(xStart + 3, 26, L"• 하트: ", COLOR_LIGHT_YELLOW);
@@ -985,7 +986,7 @@ void removeNPCByIndex(int index)
 
 NPCType WhatIsThisNPC()
 {
-    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount * (long long int)&WhatIsThisNPC);
+    srand(GetTickCount() * time(NULL) ^ gameInfo.npcCount);
     int randomValue = getRandom(101);
     if (randomValue < 5)
     {
