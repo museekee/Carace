@@ -299,8 +299,8 @@ void removeNPCByIndex(int index);         // NPC 제거
 NPCType WhatIsThisNPC();                  // NPC 종류 결정
 void setMaxLane(int lane);                // 차로 줄이기
 
-void movePlayer(int diection); // 플레이어 이동
-void addSpeed(int value);      // 속도 추가
+void movePlayer(int direction); // 플레이어 이동
+void addSpeed(int value);       // 속도 추가
 #pragma endregion
 
 #pragma region 메인함수와 초기화
@@ -614,7 +614,7 @@ void ScorePage()
         }
     }
 
-    writeWideStringToBuffer(34, HEIGHT - 4, L"[S] 키를 눌러 저장하고 종료 (파일명: 1401_museekee.txt)", COLOR_LIGHT_RED);
+    writeWideStringToBuffer(34, HEIGHT - 4, L"[S] 키를 눌러 저장하고 종료 (파일명: 1401_권유호.txt)", COLOR_LIGHT_RED);
     writeWideStringToBuffer(42, HEIGHT - 2, L"[Enter] 키를 눌러 저장하지 않고 종료", COLOR_BRIGHT_WHITE);
 
     flipBuffer();
@@ -628,7 +628,7 @@ void ScorePage()
         case 'S':
         case 's':
         {
-            FILE *file = _wfopen(L"1401_museekee.txt", L"w, ccs=UTF-8");
+            FILE *file = _wfopen(L"1401_권유호.txt", L"w, ccs=UTF-8");
             if (file)
             {
                 fwprintf(file, L"점수: %.3lf점\n등급: %c\n", gameInfo.score, gradeText);
