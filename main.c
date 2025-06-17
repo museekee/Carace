@@ -480,10 +480,8 @@ void PortalPage()
     wchar_t detectedProgram[50];
     SAFE_SWPRINTF(detectedProgram, 50, L"현재 감지된 프로그램은 %s 입니다.", isWindowsTerminal ? L"쾌적한 Windows Terminal" : L"cmd");
     writeWideStringToBuffer(34, 20, detectedProgram, isWindowsTerminal ? COLOR_LIGHT_GREEN : COLOR_RED);
-    if (!isWindowsTerminal) {
+    if (!isWindowsTerminal)
         writeWideStringToBuffer(34, 21, L"플레이는 가능하나, 자주 끊기는 현상이 발견되었습니다.", COLOR_RED);
-        writeWideStringToBuffer(34, 22, L"이 점, 참고해주시기 바랍니다.", COLOR_RED);
-    }
     writeStringToBuffer(47, 23, "[PRESS 'ENTER' TO START]", COLOR_WHITE);
     flipBuffer();
 
